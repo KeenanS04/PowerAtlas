@@ -1,0 +1,49 @@
+/* Style for the map container */
+#map {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    margin: 20px;
+    border: 1px solid #ccc;
+    background-color: #f9f9f9;
+}
+
+/* Style for the SVG element */
+svg {
+    display: block; /* removes bottom margin/whitespace */
+    background-color: #e6e6e6; /* light grey background for contrast */
+    border-radius: 8px; /* optional: rounds corners of the map */
+}
+
+/* Tooltip styling */
+.tooltip {
+    position: absolute;
+    text-align: center;
+    padding: 6px;
+    font: 12px sans-serif;
+    background: white;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.3s;
+}
+
+#slider-container {
+    text-align: center;
+    margin: 20px;
+}
+
+/* Tooltip styling (adjust as necessary) */
+.tooltip {
+    position: absolute;
+    text-align: center;
+    padding: 6px;
+    font: 12px sans-serif;
+    background: white;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.3s;
+}
