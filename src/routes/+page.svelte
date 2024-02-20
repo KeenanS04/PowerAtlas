@@ -7,23 +7,6 @@
     const height = window.innerHeight;
     let geojsonData;
     let globalEnergyData;
-    let currentEnergyType = 'primary_energy_consumption';
-
-    const colorScales = {
-      biofuel_consumption: d3.scaleSequential(d3.interpolateGreens),
-      coal_consumption: d3.scaleSequential(d3.interpolateGreys),
-      fossil_fuel_consumption: d3.scaleSequential(d3.interpolateOrRd),
-      gas_consumption: d3.scaleSequential(d3.interpolateBlues),
-      hydro_consumption: d3.scaleSequential(d3.interpolateBuGn),
-      low_carbon_consumption: d3.scaleSequential(d3.interpolateRdPu),
-      nuclear_consumption: d3.scaleSequential(d3.interpolateInferno),
-      oil_consumption: d3.scaleSequential(d3.interpolateViridis),
-      other_renewable_consumption: d3.scaleSequential(d3.interpolateMagma),
-      primary_energy_consumption: d3.scaleSequential(d3.interpolateCividis),
-      renewables_consumption: d3.scaleSequential(d3.interpolateCool),
-      solar_consumption: d3.scaleSequential(d3.interpolateWarm),
-      wind_consumption: d3.scaleSequential(d3.interpolateSpectral)
-    };
 
     const svg = d3
       .select("#map")
@@ -41,10 +24,6 @@
       .scale(width / 2 / Math.PI);
 
     const pathGenerator = d3.geoPath().projection(projection);
-
-    Object.keys(colorScales).forEach(key => {
-      colorScales[key].domain(energyDomain);
-    });
 
     const colorScale = d3
       .scaleThreshold()
@@ -82,45 +61,34 @@
     });
 
     function updateMap(energyData, selectedYear) {
+      const selectedEnergyType = document.getElementById('energy-type').value; // Get the selected energy type
       const energyDataMap = new Map();
 
       energyData.forEach((d) => {
         if (parseInt(d.year, 10) === selectedYear) {
-          energyDataMap.set(d.country, +d.renewables_consumption);
+          energyDataMap.set(d.country, +d[selectedEnergyType]); // Use the selected energy type for data mapping
         }
       });
 
-      const selectedColorScale = colorScales[currentEnergyType];
-
       geojsonData.features.forEach((feature) => {
-        feature.properties.energy = energyDataMap.get(feature.properties.name);
-        const country = feature.properties.name;
-        const energy = energyDataMap.get(country);
-        if (energy && energy[currentEnergyType]) {
-          feature.properties.energy = +energy[currentEnergyType];
-        } else {
-          delete feature.properties.energy;
-    }
+        feature.properties.energy = energyDataMap.get(feature.properties.name) || 0;
       });
-      console.log(geojsonData);
+
       g.selectAll("path")
         .data(geojsonData.features)
         .join("path")
         .attr("d", pathGenerator)
-        .attr("fill", d => {
-          const energy = d.properties.energy ? d.properties.energy[currentEnergyType] : null;
-          return energy ? selectedColorScale(energy) : 'lightgray';
-        });
+        .attr("fill", d => colorScale(d.properties.energy) || "#ccc");
     }
 
-    d3.select("#year-slider").on("input", function(event) {
-      document.getElementById('year-label').textContent = event.target.value;
-      updateMap(event.target.value);
+    d3.select('#energy-type').on('change', function() {
+      const selectedYear = parseInt(document.getElementById('year-slider').value, 10);
+      updateMap(globalEnergyData, selectedYear); // Update map based on the new energy type
     });
 
-    d3.select('#energy-type').on('change', function(event) {
-      currentEnergyType = event.target.value;
-      updateMap(document.getElementById('year-slider').value);
+    // Adjust the year slider listener if needed to ensure it uses the current energy type
+    d3.select("#year-slider").on("input", function (event) {
+      updateMap(globalEnergyData, parseInt(event.target.value, 10));
     });
   });
 </script>
@@ -128,27 +96,27 @@
 <main>
   <h1 class="title">World Energies</h1>
   <div id="energy-type-selector">
-  <label for="energy-type">Choose Energy Type:</label>
-  <select id="energy-type">
-    <option value="primary_energy_consumption">Primary Energy Consumption</option>
-    <option value="biofuel_consumption">Biofuel Consumption</option>
-    <option value="coal_consumption">Coal Consumption</option>
-    <option value="fossil_fuel_consumption">Fossil Fuel Consumption</option>
-    <option value="gas_consumption">Gas Consumption</option>
-    <option value="hydro_consumption">Hydro Consumption</option>
-    <option value="low_carbon_consumption">Low Carbon Consumption</option>
-    <option value="nuclear_consumption">Nuclear Consumption</option>
-    <option value="oil_consumption">Oil Consumption</option>
-    <option value="other_renewable_consumption">Other renewable Consumption</option>
-    <option value="renewables_consumption">Renewables Consumption</option>
-    <option value="solar_consumption">Solar Consumption</option>
-    <option value="wind_consumption">Wind Consumption</option>
-  </select>
-</div>
+    <label for="energy-type">Choose Energy Type:</label>
+    <select id="energy-type">
+      <option value="primary_energy_consumption">Primary Energy Consumption</option>
+      <option value="biofuel_consumption">Biofuel Consumption</option>
+      <option value="coal_consumption">Coal Consumption</option>
+      <option value="fossil_fuel_consumption">Fossil Fuel Consumption</option>
+      <option value="gas_consumption">Gas Consumption</option>
+      <option value="hydro_consumption">Hydro Consumption</option>
+      <option value="low_carbon_consumption">Low Carbon Consumption</option>
+      <option value="nuclear_consumption">Nuclear Consumption</option>
+      <option value="oil_consumption">Oil Consumption</option>
+      <option value="other_renewable_consumption">Other Renewable Consumption</option>
+      <option value="renewables_consumption">Renewables Consumption</option>
+      <option value="solar_consumption">Solar Consumption</option>
+      <option value="wind_consumption">Wind Consumption</option>
+    </select>
+  </div>
   <div id="slider-container">
     <input type="range" id="year-slider" min="1965" max="2022" value="2022" />
+    <span id="year-label" style="margin-left: 10px;">2022</span>
   </div>
-  <div id="year-display">Selected Year: <span id="year-label">2022</span></div>
   <div id="map"></div>
 </main>
 
@@ -190,29 +158,45 @@
   }
 
   #slider-container {
-    text-align: center;
-    margin: 20px;
+    display: flex; /* Use flexbox */
+    justify-content: center; /* Center horizontally */
+    align-items: center; /* Align items vertically */
+    width: 80%; /* Adjust based on preference */
+    margin: 20px auto; /* Center the container with automatic margins */
   }
 
-  #energy-type-selector {
-  text-align: center;
-  margin-bottom: 10px; /* Spacing between the dropdown and the slider */
+  #year-slider {
+    -webkit-appearance: none; /* For WebKit */
+    width: calc(100% - 60px); /* Adjust width to leave space for year label */
+    margin: 0; /* Remove any default margin */
+    height: 15px; /* Custom height */
+    background: #333; /* Darker background for better visibility */
+    border-radius: 7.5px; /* Optional: Adds rounded corners */
+    outline: none;
   }
 
-  #energy-type {
-    padding: 5px;
-    font-size: 16px;
+  #year-slider:hover {
+    opacity: 1; /* Fully opaque on hover */
+  }
+
+  #year-slider::-webkit-slider-thumb {
+    -webkit-appearance: none; /* Override default appearance */
+    appearance: none;
+    width: 25px; /* Make the thumb larger */
+    height: 25px; /* Make the thumb larger */
+    background: #4CAF50;
     cursor: pointer;
   }
 
-  #slider-container {
-  width: 80%; /* Makes the slider take up more horizontal space */
-  margin: 0 auto; /* Centers the slider */
+  #year-slider::-moz-range-thumb {
+    width: 25px; /* Make the thumb larger */
+    height: 25px; /* Make the thumb larger */
+    background: #4CAF50;
+    cursor: pointer;
   }
 
   #year-display {
-    text-align: center;
-    margin: 10px 0;
-    font-size: 16px;
-}
+    margin-top: 10px;
+  }
+
 </style>
