@@ -25,9 +25,75 @@
 
     const pathGenerator = d3.geoPath().projection(projection);
 
-    const colorScale = d3.scaleThreshold()
+    const colorScale = d3
+      .scaleThreshold()
       .domain([10.61, 69.34, 345.49, 44275.91])
-      .range(["#e0f3db", "#a8ddb5", "#43a2ca", "#0868ac", "#084081"]);
+      .range(["#a8ddb5", "#43a2ca", "#0868ac", "#084081"]);
+
+    // After defining the colorScale
+    const legendData = colorScale.range().map((color) => {
+      const d = colorScale.invertExtent(color);
+      if (d[0] == null) d[0] = colorScale.domain()[0];
+      if (d[1] == null) d[1] = colorScale.domain()[1];
+      return d;
+    });
+    console.log(legendData);
+
+    // Create a legend group in your SVG (after creating the svg variable)
+    const legend = svg
+      .append("g")
+      .attr("id", "legend")
+      .attr("transform", `translate(${100}, ${height - 250})`); // Adjust position as needed
+
+    // Assuming the legend and legendData are already defined
+    // Calculate the size of the background based on the number of items
+    const legendItems = legendData.length;
+    const legendItemHeight = 30; // Height of each legend item, including spacing
+    const legendWidth = 230; // Width of the legend, adjust as needed
+    const legendHeight = legendItems * legendItemHeight + 30; // Height based on items, adjust padding as needed
+
+    // Append a background rectangle to the legend group
+    legend
+  .append("rect")
+  .attr("class", "legend-bg")
+  .attr("x", -10)
+  .attr("y", -30)
+  .attr("width", legendWidth)
+  .attr("height", legendHeight)
+  .attr("fill", "white")
+  .attr("stroke", "black")
+  .attr("stroke-width", 1)
+  .style("opacity", 0.8);
+
+// Correctly append and update rectangles for each legend item
+const legendRects = legend.selectAll(".legend-color-rect")
+  .data(legendData)
+  .enter()
+  .append("rect")
+  .attr("class", "legend-color-rect")
+  .attr("x", 0)
+  .attr("y", (d, i) => i * legendItemHeight)
+  .attr("width", 20)
+  .attr("height", 20)
+  .style("fill", (d) => colorScale(d[0]));
+
+// Add text labels to the legend
+legend.selectAll(".legend-text")
+  .data(legendData)
+  .enter()
+  .append("text")
+  .attr("class", "legend-text")
+  .attr("x", 30)
+  .attr("y", (d, i) => i * legendItemHeight + 15)
+  .text((d) => `${d[0].toFixed(2)} - ${d[1].toFixed(2)}`);
+
+    // Optionally, add a title to your legend
+    legend
+      .append("text")
+      .attr("x", 0)
+      .attr("y", -10) // Position above the first rectangle
+      .text("Energy Consumption (TWh)")
+      .attr("font-weight", "bold");
 
     // Implement zoom and pan functionality
     const zoom = d3
@@ -52,8 +118,8 @@
       d3.json("custom.geo.json"),
       d3.csv("energy_filtered.csv"),
     ]).then(([data, energyData]) => {
-      console.log(data);
-      console.log(energyData);
+      // console.log(data);
+      // console.log(energyData);
       geojsonData = data;
       globalEnergyData = energyData; // Set the globalEnergyData here
       updateMap(globalEnergyData, 2022); // Initial map for the year 2022
@@ -98,10 +164,10 @@
 
     // Adjust the year slider listener if needed to ensure it uses the current energy type
     d3.select("#year-slider").on("input", function (event) {
-  const currentYear = parseInt(event.target.value, 10); // Get the current year from the slider
-  document.getElementById('year-label').textContent = currentYear; // Update the label with the current year
-  updateMap(globalEnergyData, currentYear); // Update the map based on the new year
-});
+      const currentYear = parseInt(event.target.value, 10); // Get the current year from the slider
+      document.getElementById("year-label").textContent = currentYear; // Update the label with the current year
+      updateMap(globalEnergyData, currentYear); // Update the map based on the new year
+    });
   });
 </script>
 
