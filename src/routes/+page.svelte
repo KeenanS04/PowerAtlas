@@ -125,32 +125,142 @@ legend.selectAll(".legend-text")
       updateMap(globalEnergyData, 2022); // Initial map for the year 2022
     });
 
+    function calculateLineChartData(countryName, selectedYear) {
+      const startYear = selectedYear - 2;
+      const endYear = selectedYear + 2;
+      const filteredData = globalEnergyData.filter(d =>
+        d.country === countryName && d.year >= startYear && d.year <= endYear
+      );
+
+      // For simplicity, let's focus on primary_energy_consumption
+      return filteredData.map(d => ({
+        year: d.year,
+        value: d.primary_energy_consumption // Adjust according to your data columns
+      }));
+    }
+
+    function showLineChart(countryName, selectedYear) {
+      const lineChartData = calculateLineChartData(countryName, selectedYear);
+
+      const container = d3.select("#line-chart-container");
+      container.html(""); // Clear previous content
+
+      // Adjusted margins and increased visualization size
+      const margin = {top: 50, right: 30, bottom: 70, left: 70},
+          width = 400 - margin.left - margin.right, // Increased width
+          height = 300 - margin.top - margin.bottom; // Increased height
+
+      const svg = container.append("svg")
+          .attr("width", width + margin.left + margin.right)
+          .attr("height", height + margin.top + margin.bottom)
+          .style("background-color", "white")
+        .append("g")
+          .attr("transform", `translate(${margin.left},${margin.top})`);
+      
+      svg.append("rect")
+        .attr("width", width + margin.left + margin.right) // Cover full width including margins
+        .attr("height", height + margin.top + margin.bottom) // Cover full height including margins
+        .attr("x", -margin.left) 
+        .attr("y", -margin.top) 
+        .attr("fill", "white");
+
+      // Calculate the domain for the X-axis based on available data
+      let xDomain = d3.extent(lineChartData, d => d.year);
+      // Adjust the domain if necessary based on the data availability
+      if (xDomain.length < 5) {
+          xDomain = [selectedYear - 2, selectedYear + 2]; // Default to a 5-year range
+      }
+
+      const x = d3.scaleLinear()
+          .domain(xDomain)
+          .range([0, width]);
+
+      const y = d3.scaleLinear()
+        .domain([d3.min(lineChartData, d => d.value), d3.max(lineChartData, d => d.value)])
+        .range([height, 0])
+        .nice();
+
+      // Scales and axes setup remains the same
+
+      // Append chart title
+      svg.append("text")
+          .attr("x", width / 2)
+          .attr("y", 0 - (margin.top / 2))
+          .attr("text-anchor", "middle")
+          .style("font-size", "16px")
+          .style("text-decoration", "underline")
+          .text(`${countryName} Energy Consumption Breakdown (${selectedYear-2} to ${selectedYear+2})`);
+
+      // Append y-axis label
+      svg.append("text")
+          .attr("transform", "rotate(-90)")
+          .attr("y", 0 - margin.left)
+          .attr("x",0 - (height / 2))
+          .attr("dy", "1em")
+          .style("text-anchor", "middle")
+          .text("Energy Consumption (TWh)");
+
+      // Append x-axis label
+      svg.append("text")
+          .attr("transform", `translate(${width / 2}, ${height + margin.bottom - 20})`)
+          .style("text-anchor", "middle")
+          .text("Years");
+
+      svg.append("path")
+          .datum(lineChartData)
+          .attr("fill", "none")
+          .attr("stroke", "steelblue")
+          .attr("stroke-width", 2)
+          .attr("d", d3.line()
+            .x(d => x(d.year))
+            .y(d => y(d.value))
+          );
+
+      svg.append("g")
+        .attr("transform", `translate(0,${height})`)
+        .call(d3.axisBottom(x).ticks(5).tickFormat(d3.format("d"))); // Ensure only 5 ticks for the 5 years
+
+      svg.append("g")
+          .call(d3.axisLeft(y));
+    }
+
     function updateMap(energyData, selectedYear) {
-      const selectedEnergyType = document.getElementById("energy-type").value; // Get the selected energy type
-      const energyDataMap = new Map();
+      const selectedEnergyType = document.getElementById("energy-type").value;
+      // Optional: Recalculate the color scale domain based on current data
+      // This example assumes you have a way to determine the min and max values for the current selection
+      // For simplicity, we'll skip this step, but in a real scenario, you might adjust the colorScale's domain here
 
-      energyData.forEach((d) => {
-        if (parseInt(d.year, 10) === selectedYear) {
-          energyDataMap.set(d.country, +d[selectedEnergyType]); // Use the selected energy type for data mapping
-        }
+      // Clear any existing paths to avoid duplicates
+      g.selectAll("path").remove();
+
+      geojsonData.features.forEach(feature => {
+          const countryData = energyData.find(d => d.country === feature.properties.name && parseInt(d.year, 10) === selectedYear);
+          feature.properties.energy = countryData ? +countryData[selectedEnergyType] : 0;
       });
 
-      geojsonData.features.forEach((feature) => {
-        feature.properties.energy =
-          energyDataMap.get(feature.properties.name) || 0;
-      });
-
+      // Draw the paths for each country with updated color
       g.selectAll("path")
         .data(geojsonData.features)
-        .join("path")
+        .enter().append("path")
         .attr("d", pathGenerator)
-        .attr("fill", (d) => {
-          // Check if the country's energy data is 0 or undefined
-          if (d.properties.energy === 0 || d.properties.energy === undefined) {
-            return "#ccc"; // Bright red color for countries with no data
-          } else {
-            return colorScale(d.properties.energy) || "#ccc"; // Use the color scale or default to #ccc
-          }
+        .attr("fill", d => colorScale(d.properties.energy) || "#ccc") // Use dynamic color based on the current value
+        .on("mouseover", function(event, d) {
+            // Highlight the country
+            d3.select(this).style("opacity", 0.5);
+            const countryName = d.properties.name;
+            // Show the line chart for the hovered country
+            showLineChart(countryName, selectedYear);
+
+            // Position the line chart container
+            d3.select("#line-chart-container")
+              .style("left", `${event.pageX + 10}px`)
+              .style("top", `${event.pageY + 10}px`)
+              .style("visibility", "visible");
+        })
+        .on("mouseout", function() {
+            // Remove the highlight and hide the line chart
+            d3.select(this).style("opacity", 1);
+            d3.select("#line-chart-container").style("visibility", "hidden");
         });
     }
 
@@ -199,6 +309,7 @@ legend.selectAll(".legend-text")
     <input type="range" id="year-slider" min="1965" max="2022" value="2022" />
     <span id="year-label" style="margin-left: 10px;">2022</span>
   </div>
+  <div id="line-chart-container" style="position: absolute; visibility: hidden; width: 300px; height: 200px; background-color: white; border: 1px solid #ccc; pointer-events: none;"></div>
   <div id="map"></div>
 </main>
 
