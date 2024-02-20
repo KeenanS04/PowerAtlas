@@ -25,10 +25,9 @@
 
     const pathGenerator = d3.geoPath().projection(projection);
 
-    const colorScale = d3
-      .scaleThreshold()
+    const colorScale = d3.scaleThreshold()
       .domain([10.61, 69.34, 345.49, 44275.91])
-      .range(["#f7fbff", "#deebf7", "#c6dbef", "#9ecae1", "#6baed6"]);
+      .range(["#e0f3db", "#a8ddb5", "#43a2ca", "#0868ac", "#084081"]);
 
     // Implement zoom and pan functionality
     const zoom = d3
@@ -61,7 +60,7 @@
     });
 
     function updateMap(energyData, selectedYear) {
-      const selectedEnergyType = document.getElementById('energy-type').value; // Get the selected energy type
+      const selectedEnergyType = document.getElementById("energy-type").value; // Get the selected energy type
       const energyDataMap = new Map();
 
       energyData.forEach((d) => {
@@ -71,25 +70,38 @@
       });
 
       geojsonData.features.forEach((feature) => {
-        feature.properties.energy = energyDataMap.get(feature.properties.name) || 0;
+        feature.properties.energy =
+          energyDataMap.get(feature.properties.name) || 0;
       });
 
       g.selectAll("path")
         .data(geojsonData.features)
         .join("path")
         .attr("d", pathGenerator)
-        .attr("fill", d => colorScale(d.properties.energy) || "#ccc");
+        .attr("fill", (d) => {
+          // Check if the country's energy data is 0 or undefined
+          if (d.properties.energy === 0 || d.properties.energy === undefined) {
+            return "#ccc"; // Bright red color for countries with no data
+          } else {
+            return colorScale(d.properties.energy) || "#ccc"; // Use the color scale or default to #ccc
+          }
+        });
     }
 
-    d3.select('#energy-type').on('change', function() {
-      const selectedYear = parseInt(document.getElementById('year-slider').value, 10);
+    d3.select("#energy-type").on("change", function () {
+      const selectedYear = parseInt(
+        document.getElementById("year-slider").value,
+        10,
+      );
       updateMap(globalEnergyData, selectedYear); // Update map based on the new energy type
     });
 
     // Adjust the year slider listener if needed to ensure it uses the current energy type
     d3.select("#year-slider").on("input", function (event) {
-      updateMap(globalEnergyData, parseInt(event.target.value, 10));
-    });
+  const currentYear = parseInt(event.target.value, 10); // Get the current year from the slider
+  document.getElementById('year-label').textContent = currentYear; // Update the label with the current year
+  updateMap(globalEnergyData, currentYear); // Update the map based on the new year
+});
   });
 </script>
 
@@ -98,7 +110,9 @@
   <div id="energy-type-selector">
     <label for="energy-type">Choose Energy Type:</label>
     <select id="energy-type">
-      <option value="primary_energy_consumption">Primary Energy Consumption</option>
+      <option value="primary_energy_consumption"
+        >Primary Energy Consumption</option
+      >
       <option value="biofuel_consumption">Biofuel Consumption</option>
       <option value="coal_consumption">Coal Consumption</option>
       <option value="fossil_fuel_consumption">Fossil Fuel Consumption</option>
@@ -107,7 +121,9 @@
       <option value="low_carbon_consumption">Low Carbon Consumption</option>
       <option value="nuclear_consumption">Nuclear Consumption</option>
       <option value="oil_consumption">Oil Consumption</option>
-      <option value="other_renewable_consumption">Other Renewable Consumption</option>
+      <option value="other_renewable_consumption"
+        >Other Renewable Consumption</option
+      >
       <option value="renewables_consumption">Renewables Consumption</option>
       <option value="solar_consumption">Solar Consumption</option>
       <option value="wind_consumption">Wind Consumption</option>
@@ -184,19 +200,18 @@
     appearance: none;
     width: 25px; /* Make the thumb larger */
     height: 25px; /* Make the thumb larger */
-    background: #4CAF50;
+    background: #4caf50;
     cursor: pointer;
   }
 
   #year-slider::-moz-range-thumb {
     width: 25px; /* Make the thumb larger */
     height: 25px; /* Make the thumb larger */
-    background: #4CAF50;
+    background: #4caf50;
     cursor: pointer;
   }
 
   #year-display {
     margin-top: 10px;
   }
-
 </style>
