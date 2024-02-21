@@ -73,7 +73,7 @@
     const colorScale = d3
       .scaleThreshold()
       .domain([10.61, 69.34, 345.49, 44275.91])
-      .range(["#a8ddb5", "#43a2ca", "#0868ac", "#084081"]);
+      .range(["#83aff0", "#4779c4", "#3c649f", "#2c456b"]);
 
     // After defining the colorScale
     const legendData = colorScale.range().map((color) => {
@@ -262,9 +262,52 @@
       return percentChanges;
     }
 
+    function calculateTotalLineChartData(selectedYear, energyType, energyData) {
+      // Calculate the total energy consumption for each year for the selected energy type
+      if (!Array.isArray(energyData)) {
+        console.error('energyData is not an array', energyData);
+        return []; // Return an empty array or handle this case appropriately
+      }
+      const startYear = selectedYear - 2;
+      const endYear = selectedYear + 2;
+      let yearTotals = {};
+
+      energyData.forEach(d => {
+        const year = parseInt(d.year, 10);
+        const value = +d[energyType];
+        if (!isNaN(value) && year >= startYear && year <= endYear) {
+          if (!yearTotals[year]) {
+            yearTotals[year] = 0;
+          }
+          yearTotals[year] += value;
+        }
+      });
+
+      // Convert the totals into an array of { year, value } objects and sort by year
+      let totalLineChartData = Object.keys(yearTotals).map(year => ({
+        year: +year,
+        value: yearTotals[year]
+      })).sort((a, b) => a.year - b.year);
+
+      const startYearData = totalLineChartData.find(d => d.year === selectedYear - 2);
+      if (startYearData) {
+        const startValue = startYearData.value;
+        totalLineChartData = totalLineChartData.map(d => ({
+        year: d.year,
+        value: ((d.value - startValue) / startValue) * 100 // Calculate the percentage change
+      }));
+      } else {
+        // If there is no data for the start year, default to 0 percent change
+        totalLineChartData = totalLineChartData.map(d => ({ year: d.year, value: 0 }));
+      }
+
+      return totalLineChartData;
+    }
+
     function showLineChart(countryName, selectedYear) {
       const selectedEnergyType = document.getElementById("energy-type").value;
       const lineChartData = calculateLineChartData(countryName, selectedYear, selectedEnergyType);
+      const totalLineChartData = calculateTotalLineChartData(selectedYear, selectedEnergyType, globalEnergyData);
 
       const container = d3.select("#line-chart-container");
       container.html(""); // Clear previous content
@@ -281,6 +324,7 @@
         .style("background-color", "white")
         .append("g")
         .attr("transform", `translate(${margin.left},${margin.top})`);
+      
 
       svg
         .append("rect")
@@ -291,22 +335,24 @@
         .attr("fill", "white");
 
       // Calculate the domain for the X-axis based on available data
-      let xDomain = d3.extent(lineChartData, (d) => d.year);
+      const combinedData = lineChartData.concat(totalLineChartData);
+
+      // Calculate the domain for the X-axis based on available data
+      let xDomain = d3.extent(combinedData, (d) => d.year);
+
       // Adjust the domain if necessary based on the data availability
       if (xDomain.length < 5) {
         xDomain = [selectedYear - 2, selectedYear + 2]; // Default to a 5-year range
       }
 
-      const x = d3.scaleLinear().domain(xDomain).range([0, width]);
+      // Calculate the domain for the Y-axis based on the combined data
+      const yDomain = [
+        d3.min(combinedData, (d) => d.value),
+        d3.max(combinedData, (d) => d.value)
+      ];
 
-      const y = d3
-        .scaleLinear()
-        .domain([
-          d3.min(lineChartData, (d) => d.value),
-          d3.max(lineChartData, (d) => d.value),
-        ])
-        .range([height, 0])
-        .nice();
+      const x = d3.scaleLinear().domain(xDomain).range([0, width]);
+      const y = d3.scaleLinear().domain(yDomain).range([height, 0]).nice();
 
       // Scales and axes setup remains the same
 
@@ -357,6 +403,19 @@
             .x((d) => x(d.year))
             .y((d) => y(d.value)),
         );
+      
+      svg
+      .append("path")
+      .datum(totalLineChartData)
+      .attr("fill", "none")
+      .attr("stroke", "orange") // Use a different color for the total line
+      .attr("stroke-width", 2)
+      .attr("d", 
+            d3.
+            line()
+            .x(d => x(d.year))
+            .y(d => y(d.value))
+      );
 
       svg
         .append("g")
@@ -364,7 +423,49 @@
         .call(d3.axisBottom(x).ticks(5).tickFormat(d3.format("d"))); // Ensure only 5 ticks for the 5 years
 
       svg.append("g").call(d3.axisLeft(y));
+
+      const legendPadding = 10; // Padding from the right and bottom edges
+      const legendMargin = 20; // Space between legend items
+
+      // Calculate starting positions for the legend based on the SVG dimensions
+      const legendX = width - 340; // Adjust this value as needed to fit within your visualization
+      const legendY = height + 25; // Adjust this value to position the legend at the bottom
+
+      // Create a legend group
+      const lineChartLegend = svg.append("g")
+        .attr("transform", `translate(${legendX}, ${legendY})`);
+
+      // Country Line Legend
+      lineChartLegend.append("rect")
+        .attr("x", 0)
+        .attr("y", 0)
+        .attr("width", 10)
+        .attr("height", 10)
+        .style("fill", "steelblue");
+
+      lineChartLegend.append("text")
+        .attr("x", 20)
+        .attr("y", 10)
+        .text(`${countryName} % Change`)
+        .style("font-size", "12px")
+        .attr("alignment-baseline", "middle");
+
+      // Total Line Legend
+      lineChartLegend.append("rect")
+        .attr("x", 0)
+        .attr("y", 20) // Adjust this to change the vertical spacing between legend items
+        .attr("width", 10)
+        .attr("height", 10)
+        .style("fill", "orange");
+
+      lineChartLegend.append("text")
+        .attr("x", 20)
+        .attr("y", 30) // Aligns with the 'Total % Change' legend rectangle
+        .text("Total % Change")
+        .style("font-size", "12px")
+        .attr("alignment-baseline", "middle");
     }
+
 
     function updateMap(energyData, selectedYear) {
       const selectedEnergyType = document.getElementById("energy-type").value;
@@ -526,8 +627,8 @@
 
   #energy-type {
     padding: 5px 10px;
-    background-color: #43a2ca; /* Or any color you prefer */
-    color: white;
+    background-color: #83aff0; 
+    color: black;
     border: none;
     border-radius: 5px;
     cursor: pointer;
@@ -535,7 +636,7 @@
     -webkit-appearance: none;
     -moz-appearance: none;
     appearance: none;
-    margin-right: 10px; /* Space between the dropdown and the slider */
+    margin-right: 10px; 
   }
 
   #year-slider {
@@ -553,7 +654,7 @@
     appearance: none;
     width: 25px;
     height: 25px;
-    background: #43a2ca;
+    background: #83aff0;
     cursor: pointer;
     border-radius: 50%;
   }
