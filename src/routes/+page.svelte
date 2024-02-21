@@ -7,6 +7,42 @@
     const height = window.innerHeight;
     let geojsonData;
     let globalEnergyData;
+    // --- Method to wrap SVG text ---
+    function wrap(text, width) {
+      text.each(function () {
+        var text = d3.select(this),
+          words = text.text().split(/\s+/).reverse(),
+          word,
+          line = [],
+          lineNumber = 0,
+          lineHeight = 1.1, // ems
+          y = text.attr("y"),
+          x = text.attr("x"), // Get the 'x' position of the parent text element
+          dy = parseFloat(text.attr("dy") || 0),
+          tspan = text
+            .text(null)
+            .append("tspan")
+            .attr("x", x)
+            .attr("y", y)
+            .attr("dy", dy + "em");
+
+        while ((word = words.pop())) {
+          line.push(word);
+          tspan.text(line.join(" "));
+          if (tspan.node().getComputedTextLength() > width) {
+            line.pop(); // Remove the word that overflowed
+            tspan.text(line.join(" "));
+            line = [word]; // Start a new line with the overflowed word
+            tspan = text
+              .append("tspan")
+              .attr("x", x)
+              .attr("y", y)
+              .attr("dy", ++lineNumber * lineHeight + dy + "em")
+              .text(word);
+          }
+        }
+      });
+    }
 
     const svg = d3
       .select("#map")
@@ -43,7 +79,7 @@
     const legend = svg
       .append("g")
       .attr("id", "legend")
-      .attr("transform", `translate(${100}, ${height - 250})`); // Adjust position as needed
+      .attr("transform", `translate(${50}, ${height - 300})`); // Adjust position as needed
 
     // Assuming the legend and legendData are already defined
     // Calculate the size of the background based on the number of items
@@ -54,38 +90,40 @@
 
     // Append a background rectangle to the legend group
     legend
-  .append("rect")
-  .attr("class", "legend-bg")
-  .attr("x", -10)
-  .attr("y", -30)
-  .attr("width", legendWidth)
-  .attr("height", legendHeight)
-  .attr("fill", "white")
-  .attr("stroke", "black")
-  .attr("stroke-width", 1)
-  .style("opacity", 0.8);
+      .append("rect")
+      .attr("class", "legend-bg")
+      .attr("x", -10)
+      .attr("y", -30)
+      .attr("width", legendWidth)
+      .attr("height", legendHeight)
+      .attr("fill", "white")
+      .attr("stroke", "black")
+      .attr("stroke-width", 1)
+      .style("opacity", 0.8);
 
-// Correctly append and update rectangles for each legend item
-const legendRects = legend.selectAll(".legend-color-rect")
-  .data(legendData)
-  .enter()
-  .append("rect")
-  .attr("class", "legend-color-rect")
-  .attr("x", 0)
-  .attr("y", (d, i) => i * legendItemHeight)
-  .attr("width", 20)
-  .attr("height", 20)
-  .style("fill", (d) => colorScale(d[0]));
+    // Correctly append and update rectangles for each legend item
+    const legendRects = legend
+      .selectAll(".legend-color-rect")
+      .data(legendData)
+      .enter()
+      .append("rect")
+      .attr("class", "legend-color-rect")
+      .attr("x", 0)
+      .attr("y", (d, i) => i * legendItemHeight)
+      .attr("width", 20)
+      .attr("height", 20)
+      .style("fill", (d) => colorScale(d[0]));
 
-// Add text labels to the legend
-legend.selectAll(".legend-text")
-  .data(legendData)
-  .enter()
-  .append("text")
-  .attr("class", "legend-text")
-  .attr("x", 30)
-  .attr("y", (d, i) => i * legendItemHeight + 15)
-  .text((d) => `${d[0].toFixed(2)} - ${d[1].toFixed(2)}`);
+    // Add text labels to the legend
+    legend
+      .selectAll(".legend-text")
+      .data(legendData)
+      .enter()
+      .append("text")
+      .attr("class", "legend-text")
+      .attr("x", 30)
+      .attr("y", (d, i) => i * legendItemHeight + 15)
+      .text((d) => `${d[0].toFixed(2)} - ${d[1].toFixed(2)}`);
 
     // Optionally, add a title to your legend
     legend
@@ -122,21 +160,27 @@ legend.selectAll(".legend-text")
       // console.log(energyData);
       geojsonData = data;
       globalEnergyData = energyData; // Set the globalEnergyData here
-      updateMap(globalEnergyData, 2022); // Initial map for the year 2022
+      updateMap(globalEnergyData, 2021); // Initial map for the year 2022
     });
 
     function calculateLineChartData(countryName, selectedYear) {
       const startYear = selectedYear - 2;
       const endYear = selectedYear + 2;
-      const filteredData = globalEnergyData.filter(d =>
-        d.country === countryName && d.year >= startYear && d.year <= endYear
+      const filteredData = globalEnergyData.filter(
+        (d) =>
+          d.country === countryName && d.year >= startYear && d.year <= endYear,
       );
 
-      // For simplicity, let's focus on primary_energy_consumption
-      return filteredData.map(d => ({
-        year: d.year,
-        value: d.primary_energy_consumption // Adjust according to your data columns
-      }));
+      const percentChanges = filteredData.map((d, i, arr) => {
+        if (i === 0) return { year: d.year, value: 0 }; // No change for the first year
+        const prevValue = arr[i - 1].primary_energy_consumption;
+        const currentValue = d.primary_energy_consumption;
+        const percentChange = ((currentValue - prevValue) / prevValue) * 100;
+
+        return { year: d.year, value: percentChange };
+      });
+
+      return percentChanges;
     }
 
     function showLineChart(countryName, selectedYear) {
@@ -146,121 +190,170 @@ legend.selectAll(".legend-text")
       container.html(""); // Clear previous content
 
       // Adjusted margins and increased visualization size
-      const margin = {top: 50, right: 30, bottom: 70, left: 70},
-          width = 400 - margin.left - margin.right, // Increased width
-          height = 300 - margin.top - margin.bottom; // Increased height
+      const margin = { top: 50, right: 30, bottom: 70, left: 70 },
+        width = 400 - margin.left - margin.right, // Increased width
+        height = 300 - margin.top - margin.bottom; // Increased height
 
-      const svg = container.append("svg")
-          .attr("width", width + margin.left + margin.right)
-          .attr("height", height + margin.top + margin.bottom)
-          .style("background-color", "white")
+      const svg = container
+        .append("svg")
+        .attr("width", width + margin.left + margin.right)
+        .attr("height", height + margin.top + margin.bottom)
+        .style("background-color", "white")
         .append("g")
-          .attr("transform", `translate(${margin.left},${margin.top})`);
-      
-      svg.append("rect")
+        .attr("transform", `translate(${margin.left},${margin.top})`);
+
+      svg
+        .append("rect")
         .attr("width", width + margin.left + margin.right) // Cover full width including margins
         .attr("height", height + margin.top + margin.bottom) // Cover full height including margins
-        .attr("x", -margin.left) 
-        .attr("y", -margin.top) 
+        .attr("x", -margin.left)
+        .attr("y", -margin.top)
         .attr("fill", "white");
 
       // Calculate the domain for the X-axis based on available data
-      let xDomain = d3.extent(lineChartData, d => d.year);
+      let xDomain = d3.extent(lineChartData, (d) => d.year);
       // Adjust the domain if necessary based on the data availability
       if (xDomain.length < 5) {
-          xDomain = [selectedYear - 2, selectedYear + 2]; // Default to a 5-year range
+        xDomain = [selectedYear - 2, selectedYear + 2]; // Default to a 5-year range
       }
 
-      const x = d3.scaleLinear()
-          .domain(xDomain)
-          .range([0, width]);
+      const x = d3.scaleLinear().domain(xDomain).range([0, width]);
 
-      const y = d3.scaleLinear()
-        .domain([d3.min(lineChartData, d => d.value), d3.max(lineChartData, d => d.value)])
+      const y = d3
+        .scaleLinear()
+        .domain([
+          d3.min(lineChartData, (d) => d.value),
+          d3.max(lineChartData, (d) => d.value),
+        ])
         .range([height, 0])
         .nice();
 
       // Scales and axes setup remains the same
 
-      // Append chart title
-      svg.append("text")
-          .attr("x", width / 2)
-          .attr("y", 0 - (margin.top / 2))
-          .attr("text-anchor", "middle")
-          .style("font-size", "16px")
-          .style("text-decoration", "underline")
-          .text(`${countryName} Energy Consumption Breakdown (${selectedYear-2} to ${selectedYear+2})`);
+      svg
+        .append("text")
+        .attr("transform", "rotate(-90)")
+        .attr("y", 0 - margin.left)
+        .attr("x", 0 - height / 2)
+        .attr("dy", "1em")
+        .style("text-anchor", "middle")
+        .text("Percent Change (%)"); // Updated label text
 
-      // Append y-axis label
-      svg.append("text")
-          .attr("transform", "rotate(-90)")
-          .attr("y", 0 - margin.left)
-          .attr("x",0 - (height / 2))
-          .attr("dy", "1em")
-          .style("text-anchor", "middle")
-          .text("Energy Consumption (TWh)");
+      // Append chart title
+      svg
+        .append("text")
+        .attr("x", width / 2)
+        .attr("y", 0 - margin.top / 2)
+        .attr("text-anchor", "middle")
+        .style("font-size", "16px")
+        .style("text-decoration", "underline")
+        .text(
+          `${countryName} Energy Consumption Percent Change (${
+            selectedYear - 2
+          } to ${selectedYear + 2})`,
+        )
+        .call(wrap, width);
 
       // Append x-axis label
-      svg.append("text")
-          .attr("transform", `translate(${width / 2}, ${height + margin.bottom - 20})`)
-          .style("text-anchor", "middle")
-          .text("Years");
+      svg
+        .append("text")
+        .attr(
+          "transform",
+          `translate(${width / 2}, ${height + margin.bottom - 20})`,
+        )
+        .style("text-anchor", "middle")
+        .text("Years");
 
-      svg.append("path")
-          .datum(lineChartData)
-          .attr("fill", "none")
-          .attr("stroke", "steelblue")
-          .attr("stroke-width", 2)
-          .attr("d", d3.line()
-            .x(d => x(d.year))
-            .y(d => y(d.value))
-          );
+      svg
+        .append("path")
+        .datum(lineChartData)
+        .attr("fill", "none")
+        .attr("stroke", "steelblue")
+        .attr("stroke-width", 2)
+        .attr(
+          "d",
+          d3
+            .line()
+            .x((d) => x(d.year))
+            .y((d) => y(d.value)),
+        );
 
-      svg.append("g")
+      svg
+        .append("g")
         .attr("transform", `translate(0,${height})`)
         .call(d3.axisBottom(x).ticks(5).tickFormat(d3.format("d"))); // Ensure only 5 ticks for the 5 years
 
-      svg.append("g")
-          .call(d3.axisLeft(y));
+      svg.append("g").call(d3.axisLeft(y));
     }
 
     function updateMap(energyData, selectedYear) {
       const selectedEnergyType = document.getElementById("energy-type").value;
       // Optional: Recalculate the color scale domain based on current data
       // This example assumes you have a way to determine the min and max values for the current selection
-      // For simplicity, we'll skip this step, but in a real scenario, you might adjust the colorScale's domain here
 
       // Clear any existing paths to avoid duplicates
       g.selectAll("path").remove();
 
-      geojsonData.features.forEach(feature => {
-          const countryData = energyData.find(d => d.country === feature.properties.name && parseInt(d.year, 10) === selectedYear);
-          feature.properties.energy = countryData ? +countryData[selectedEnergyType] : 0;
+      geojsonData.features.forEach((feature) => {
+        const countryData = energyData.find(
+          (d) =>
+            d.country === feature.properties.name &&
+            parseInt(d.year, 10) === selectedYear,
+        );
+        feature.properties.energy = countryData
+          ? +countryData[selectedEnergyType]
+          : 0;
       });
 
       // Draw the paths for each country with updated color
       g.selectAll("path")
         .data(geojsonData.features)
-        .enter().append("path")
+        .enter()
+        .append("path")
         .attr("d", pathGenerator)
-        .attr("fill", d => colorScale(d.properties.energy) || "#ccc") // Use dynamic color based on the current value
-        .on("mouseover", function(event, d) {
-            // Highlight the country
-            d3.select(this).style("opacity", 0.5);
-            const countryName = d.properties.name;
-            // Show the line chart for the hovered country
-            showLineChart(countryName, selectedYear);
+        .attr("fill", (d) => colorScale(d.properties.energy) || "#ccc") // Use dynamic color based on the current value
+        .attr("stroke", "#fff")
+        .attr("stroke-width", 0.5)
+        .on("mouseover", function (event, d) {
+          // Highlight the country
+          d3.select(this).style("opacity", 0.5);
+          const countryName = d.properties.name;
+          // Show the line chart for the hovered country
+          showLineChart(countryName, selectedYear);
 
-            // Position the line chart container
-            d3.select("#line-chart-container")
-              .style("left", `${event.pageX + 10}px`)
-              .style("top", `${event.pageY + 10}px`)
-              .style("visibility", "visible");
+          // Dynamically calculate position to ensure the chart doesn't go off-screen
+          const chartContainer = document.getElementById(
+            "line-chart-container",
+          );
+          const chartWidth = chartContainer.offsetWidth;
+          const chartHeight = chartContainer.offsetHeight;
+          const pageX = event.pageX;
+          const pageY = event.pageY;
+          // Get the map boundaries
+          const mapBounds = pathGenerator.bounds(geojsonData);
+          const mapWidth = mapBounds[1][0] - mapBounds[0][0];
+          const mapHeight = mapBounds[1][1] - mapBounds[0][1];
+
+          // Adjust left position to avoid overflow
+          let left =
+            pageX + 10 + chartWidth > mapWidth
+              ? pageX - chartWidth - 90
+              : pageX + 15;
+          // Adjust top position to avoid overflow
+          let top =
+            pageY + chartHeight > mapHeight
+              ? mapHeight - chartHeight - 100
+              : pageY;
+
+          d3.select("#line-chart-container")
+            .style("left", `${left}px`)
+            .style("top", `${top}px`)
+            .style("visibility", "visible");
         })
-        .on("mouseout", function() {
-            // Remove the highlight and hide the line chart
-            d3.select(this).style("opacity", 1);
-            d3.select("#line-chart-container").style("visibility", "hidden");
+        .on("mouseout", function () {
+          // Remove the highlight and hide the line chart
+          d3.select(this).style("opacity", 1);
+          d3.select("#line-chart-container").style("visibility", "hidden");
         });
     }
 
@@ -306,10 +399,13 @@ legend.selectAll(".legend-text")
     </select>
   </div>
   <div id="slider-container">
-    <input type="range" id="year-slider" min="1965" max="2022" value="2022" />
-    <span id="year-label" style="margin-left: 10px;">2022</span>
+    <input type="range" id="year-slider" min="1965" max="2021" value="2021" />
+    <span id="year-label" style="margin-left: 10px;">2021</span>
   </div>
-  <div id="line-chart-container" style="position: absolute; visibility: hidden; width: 300px; height: 200px; background-color: white; border: 1px solid #ccc; pointer-events: none;"></div>
+  <div
+    id="line-chart-container"
+    style="position: absolute; visibility: hidden; width: 300px; height: 200px; background-color: white; border: 1px solid #ccc; pointer-events: none;"
+  ></div>
   <div id="map"></div>
 </main>
 
@@ -317,9 +413,9 @@ legend.selectAll(".legend-text")
   .title {
     text-align: center;
     margin: 0;
-    padding: 0;
-    background-color: #f9f9f9;
-    color: #333;
+    padding: 10px;
+    background-color: black;
+    color: white;
   }
 
   body,
@@ -335,14 +431,21 @@ legend.selectAll(".legend-text")
     display: flex;
     flex-direction: column; /* Stack children vertically */
     height: 100vh; /* Make main element take full viewport height */
+    background-color: rgb(20, 20, 20);
+    font-family: "Roboto", sans-serif;
+    font-weight: 500;
   }
 
   #map {
-    flex-grow: 1; /* Allow the map to take up the remaining space */
+    flex-grow: 0; /* Remove this line or set to 0 to override the full expansion */
     display: flex;
     justify-content: center;
     align-items: center;
     overflow: hidden; /* Prevent scrollbars within the map container */
+    width: 80%; /* Setting the width to 80% of its flex container */
+    height: 600px; /* Explicitly setting the height to 600px */
+    margin: 0 auto; /* Optionally, add this line to horizontally center the map container */
+    background-color: rgb(35, 35, 35);
   }
 
   svg {
@@ -363,7 +466,7 @@ legend.selectAll(".legend-text")
     width: calc(100% - 60px); /* Adjust width to leave space for year label */
     margin: 0; /* Remove any default margin */
     height: 15px; /* Custom height */
-    background: #333; /* Darker background for better visibility */
+    background: #4d4d4d; /* Darker background for better visibility */
     border-radius: 7.5px; /* Optional: Adds rounded corners */
     outline: none;
   }
@@ -377,18 +480,20 @@ legend.selectAll(".legend-text")
     appearance: none;
     width: 25px; /* Make the thumb larger */
     height: 25px; /* Make the thumb larger */
-    background: #4caf50;
+    background: #43a2ca;
     cursor: pointer;
   }
 
-  #year-slider::-moz-range-thumb {
-    width: 25px; /* Make the thumb larger */
-    height: 25px; /* Make the thumb larger */
-    background: #4caf50;
-    cursor: pointer;
+  #year-label {
+    color: white;
   }
 
-  #year-display {
-    margin-top: 10px;
+  #energy-type-selector {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    margin: 20px auto;
+    color: white;
+    padding: 5px;
   }
 </style>
