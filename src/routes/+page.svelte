@@ -52,6 +52,15 @@
       .attr("viewBox", `0 0 ${width} ${height}`)
       .attr("preserveAspectRatio", "xMidYMid meet");
 
+    svg.append("text")
+      .attr("x", width / 2) 
+      .attr("y", 25) 
+      .attr("text-anchor", "middle") 
+      .style("fill", "white")
+      .style("font-family", "Roboto, sans-serif")
+      .style("font-size", "22px") 
+      .text("Hover over each country to see the % change in that countries energy consumption"); 
+
     const g = svg.append("g");
 
     const projection = d3
@@ -80,6 +89,76 @@
       .append("g")
       .attr("id", "legend")
       .attr("transform", `translate(${50}, ${height - 300})`); // Adjust position as needed
+    
+
+
+      function updateColorScaleAndLegend(energyData, selectedEnergyType) {
+        // Get all the non-null values for the selected energy type from the data.
+        const energyValues = energyData
+          .map(d => +d[selectedEnergyType])
+          .filter(val => !isNaN(val) && val !== 0);
+
+        // Calculate quantiles for the color scale domain.
+        const quantileSteps = 4; // Number of color categories you want - 1.
+        const quantiles = [];
+        for (let i = 1; i <= quantileSteps; i++) {
+          quantiles.push(d3.quantile(energyValues.sort(d3.ascending), i / quantileSteps));
+        }
+
+        // Set up the color scale with the calculated quantiles.
+        colorScale.domain(quantiles);
+
+        // Update the legend with the new color scale.
+        updateLegend(colorScale);
+      }
+
+      // This function will be used to update the legend based on the color scale.
+      function updateLegend(colorScale) {
+        // Select the legend group and update the rects and texts.
+        const legend = svg.select("#legend");
+        
+        // Recalculate the legend data based on the new color scale.
+        const legendData = colorScale.range().map(color => {
+          const d = colorScale.invertExtent(color);
+          if (d[0] == null) d[0] = colorScale.domain()[0];
+          if (d[1] == null) d[1] = colorScale.domain()[1];
+          return d;
+        });
+        const legendRects = legend
+        .selectAll(".legend-color-rect")
+        .data(legendData);
+
+      legendRects.exit().remove(); // Remove any excess rects.
+
+      legendRects
+        .enter()
+        .append("rect")
+        .attr("class", "legend-color-rect")
+        .merge(legendRects) // Combine enter and update selections.
+        .attr("x", 0)
+        .attr("y", (d, i) => i * legendItemHeight)
+        .attr("width", 20)
+        .attr("height", 20)
+        .style("fill", d => colorScale(d[0]));
+
+      // Update the text labels for each legend item.
+      const legendTexts = legend
+        .selectAll(".legend-text")
+        .data(legendData);
+
+      legendTexts.exit().remove(); // Remove any excess texts.
+
+      legendTexts
+        .enter()
+        .append("text")
+        .attr("class", "legend-text")
+        .merge(legendTexts) // Combine enter and update selections.
+        .attr("x", 30)
+        .attr("y", (d, i) => i * legendItemHeight + 15)
+        .text(d => `${d[0].toFixed(2)} - ${d[1].toFixed(2)}`);
+    }
+
+
 
     // Assuming the legend and legendData are already defined
     // Calculate the size of the background based on the number of items
@@ -163,7 +242,7 @@
       updateMap(globalEnergyData, 2021); // Initial map for the year 2022
     });
 
-    function calculateLineChartData(countryName, selectedYear) {
+    function calculateLineChartData(countryName, selectedYear, energyType) {
       const startYear = selectedYear - 2;
       const endYear = selectedYear + 2;
       const filteredData = globalEnergyData.filter(
@@ -173,8 +252,8 @@
 
       const percentChanges = filteredData.map((d, i, arr) => {
         if (i === 0) return { year: d.year, value: 0 }; // No change for the first year
-        const prevValue = arr[i - 1].primary_energy_consumption;
-        const currentValue = d.primary_energy_consumption;
+        const prevValue = +arr[i - 1][energyType];
+        const currentValue = +d[energyType];
         const percentChange = ((currentValue - prevValue) / prevValue) * 100;
 
         return { year: d.year, value: percentChange };
@@ -184,7 +263,8 @@
     }
 
     function showLineChart(countryName, selectedYear) {
-      const lineChartData = calculateLineChartData(countryName, selectedYear);
+      const selectedEnergyType = document.getElementById("energy-type").value;
+      const lineChartData = calculateLineChartData(countryName, selectedYear, selectedEnergyType);
 
       const container = d3.select("#line-chart-container");
       container.html(""); // Clear previous content
@@ -288,10 +368,7 @@
 
     function updateMap(energyData, selectedYear) {
       const selectedEnergyType = document.getElementById("energy-type").value;
-      // Optional: Recalculate the color scale domain based on current data
-      // This example assumes you have a way to determine the min and max values for the current selection
 
-      // Clear any existing paths to avoid duplicates
       g.selectAll("path").remove();
 
       geojsonData.features.forEach((feature) => {
@@ -358,11 +435,10 @@
     }
 
     d3.select("#energy-type").on("change", function () {
-      const selectedYear = parseInt(
-        document.getElementById("year-slider").value,
-        10,
-      );
-      updateMap(globalEnergyData, selectedYear); // Update map based on the new energy type
+      const selectedEnergyType = this.value;
+      updateColorScaleAndLegend(globalEnergyData, selectedEnergyType);
+      const selectedYear = parseInt(document.getElementById("year-slider").value, 10);
+      updateMap(globalEnergyData, selectedYear); // Update the map based on the new energy type.
     });
 
     // Adjust the year slider listener if needed to ensure it uses the current energy type
@@ -376,36 +452,28 @@
 
 <main>
   <h1 class="title">World Energies</h1>
-  <div id="energy-type-selector">
-    <label for="energy-type">Choose Energy Type:</label>
-    <select id="energy-type">
-      <option value="primary_energy_consumption"
-        >Primary Energy Consumption</option
-      >
-      <option value="biofuel_consumption">Biofuel Consumption</option>
-      <option value="coal_consumption">Coal Consumption</option>
-      <option value="fossil_fuel_consumption">Fossil Fuel Consumption</option>
-      <option value="gas_consumption">Gas Consumption</option>
-      <option value="hydro_consumption">Hydro Consumption</option>
-      <option value="low_carbon_consumption">Low Carbon Consumption</option>
-      <option value="nuclear_consumption">Nuclear Consumption</option>
-      <option value="oil_consumption">Oil Consumption</option>
-      <option value="other_renewable_consumption"
-        >Other Renewable Consumption</option
-      >
-      <option value="renewables_consumption">Renewables Consumption</option>
-      <option value="solar_consumption">Solar Consumption</option>
-      <option value="wind_consumption">Wind Consumption</option>
-    </select>
+  <div id="controls-container">
+      <label for="energy-type">Choose Energy Type:</label>
+      <select id="energy-type">
+        <option value="primary_energy_consumption">Primary Energy Consumption</option>
+        <option value="biofuel_consumption">Biofuel Consumption</option>
+        <option value="coal_consumption">Coal Consumption</option>
+        <option value="fossil_fuel_consumption">Fossil Fuel Consumption</option>
+        <option value="gas_consumption">Gas Consumption</option>
+        <option value="hydro_consumption">Hydro Consumption</option>
+        <option value="low_carbon_consumption">Low Carbon Consumption</option>
+        <option value="nuclear_consumption">Nuclear Consumption</option>
+        <option value="oil_consumption">Oil Consumption</option>
+        <option value="other_renewable_consumption">Other Renewable Consumption</option>
+        <option value="renewables_consumption">Renewables Consumption</option>
+        <option value="solar_consumption">Solar Consumption</option>
+        <option value="wind_consumption">Wind Consumption</option>
+      </select>
+      <input type="range" id="year-slider" min="1967" max="2021" value="2021" />
+      <span>YEAR: </span>
+      <span id="year-label">2021</span>
   </div>
-  <div id="slider-container">
-    <input type="range" id="year-slider" min="1965" max="2021" value="2021" />
-    <span id="year-label" style="margin-left: 10px;">2021</span>
-  </div>
-  <div
-    id="line-chart-container"
-    style="position: absolute; visibility: hidden; width: 300px; height: 200px; background-color: white; border: 1px solid #ccc; pointer-events: none;"
-  ></div>
+  <div id="line-chart-container" style="position: absolute; visibility: hidden; width: 300px; height: 200px; background-color: white; border: 1px solid #ccc; pointer-events: none;"></div>
   <div id="map"></div>
 </main>
 
@@ -418,8 +486,7 @@
     color: white;
   }
 
-  body,
-  html {
+  body, html {
     margin: 0;
     padding: 0;
     width: 100%;
@@ -429,71 +496,71 @@
 
   main {
     display: flex;
-    flex-direction: column; /* Stack children vertically */
-    height: 100vh; /* Make main element take full viewport height */
+    flex-direction: column;
+    height: 100vh;
     background-color: rgb(20, 20, 20);
     font-family: "Roboto", sans-serif;
     font-weight: 500;
   }
 
   #map {
-    flex-grow: 0; /* Remove this line or set to 0 to override the full expansion */
+    flex-grow: 1;
     display: flex;
     justify-content: center;
     align-items: center;
-    overflow: hidden; /* Prevent scrollbars within the map container */
-    width: 80%; /* Setting the width to 80% of its flex container */
-    height: 600px; /* Explicitly setting the height to 600px */
-    margin: 0 auto; /* Optionally, add this line to horizontally center the map container */
+    overflow: hidden;
+    width: 80%;
+    height: auto; /* Adjust based on content */
+    margin: 0 auto;
     background-color: rgb(35, 35, 35);
   }
 
-  svg {
-    width: 100%; /* Fill the width of its container */
-    height: 100%; /* Fill the height of its container */
-  }
-
-  #slider-container {
-    display: flex; /* Use flexbox */
-    justify-content: center; /* Center horizontally */
-    align-items: center; /* Align items vertically */
-    width: 80%; /* Adjust based on preference */
-    margin: 20px auto; /* Center the container with automatic margins */
-  }
-
-  #year-slider {
-    -webkit-appearance: none; /* For WebKit */
-    width: calc(100% - 60px); /* Adjust width to leave space for year label */
-    margin: 0; /* Remove any default margin */
-    height: 15px; /* Custom height */
-    background: #4d4d4d; /* Darker background for better visibility */
-    border-radius: 7.5px; /* Optional: Adds rounded corners */
-    outline: none;
-  }
-
-  #year-slider:hover {
-    opacity: 1; /* Fully opaque on hover */
-  }
-
-  #year-slider::-webkit-slider-thumb {
-    -webkit-appearance: none; /* Override default appearance */
-    appearance: none;
-    width: 25px; /* Make the thumb larger */
-    height: 25px; /* Make the thumb larger */
-    background: #43a2ca;
-    cursor: pointer;
-  }
-
-  #year-label {
-    color: white;
-  }
-
-  #energy-type-selector {
+  #controls-container {
     display: flex;
     justify-content: center;
     align-items: center;
+    gap: 10px; /* Adjust the space between the controls */
     margin: 20px auto;
     color: white;
-    padding: 5px;
   }
+
+  #energy-type {
+    padding: 5px 10px;
+    background-color: #43a2ca; /* Or any color you prefer */
+    color: white;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    font-family: 'Roboto', sans-serif;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    appearance: none;
+    margin-right: 10px; /* Space between the dropdown and the slider */
+  }
+
+  #year-slider {
+    -webkit-appearance: none;
+    width: 200px; /* Fixed width or use a percentage */
+    margin: 0 10px;
+    height: 15px;
+    background: #4d4d4d;
+    border-radius: 7.5px;
+    outline: none;
+  }
+
+  #year-slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 25px;
+    height: 25px;
+    background: #43a2ca;
+    cursor: pointer;
+    border-radius: 50%;
+  }
+
+  #year-label {
+    margin-left: 0; /* Align with the slider */
+  }
+
+
 </style>
