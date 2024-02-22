@@ -51,18 +51,18 @@
       .attr("height", "100vh") // Use 100vh to take up the full viewport height
       .attr("viewBox", `0 0 ${width} ${height}`)
       .attr("preserveAspectRatio", "xMidYMid meet");
-    
-    svg.append("text")
-        .attr("class", "text-group")
-        .attr("x", width / 2)
-        .attr("y", 25)
-        .attr("text-anchor", "middle")
-        .style("fill", "white")
-        .style("font-family", "Roboto, sans-serif")
-        .style("font-size", "22px")
-        .text(
-          "Hover over each country to see the % change in that countries energy consumption",
-        );
+
+    svg
+      .append("text")
+      .attr("class", "text-group")
+      .attr("x", width / 2)
+      .attr("y", 25)
+      .attr("text-anchor", "middle")
+      .style("fill", "white")
+      .style("font-size", "22px")
+      .text(
+        "Hover over each country to see the % change in that countries energy consumption",
+      );
 
     const defs = svg.append("defs");
 
@@ -187,7 +187,7 @@
     // Calculate the size of the background based on the number of items
     const legendItems = legendData.length;
     const legendItemHeight = 30; // Height of each legend item, including spacing
-    const legendWidth = 230; // Width of the legend, adjust as needed
+    const legendWidth = 250; // Width of the legend, adjust as needed
     const legendHeight = legendItems * legendItemHeight + 30; // Height based on items, adjust padding as needed
 
     // Append a background rectangle to the legend group
@@ -248,9 +248,7 @@
 
         // Select all annotations and adjust their visibility
         svg
-          .selectAll(
-            ".text-group"
-          )
+          .selectAll(".text-group")
           .style("display", isInitialScale ? null : "none");
       });
 
@@ -549,17 +547,11 @@
         .merge(paths)
         .attr("d", pathGenerator)
         .attr("fill", (d) => colorScale(d.properties.energy) || "#ccc")
-        .transition() // Start a transition for smooth color change
-        .duration(500) // Duration of the transition in milliseconds
         .attr("stroke", "#fff")
         .attr("stroke-width", 0.5)
         .on("mouseover", function (event, d) {
           // Highlight the country
-          d3.select(this)
-          .transition() // Start a transition
-          .duration(250) // 500 milliseconds
-          .style("opacity", 0.5)
-          .style("stroke-width", 2);
+          d3.select(this).style("opacity", 0.5).style("stroke-width", 2);
           const countryName = d.properties.name;
           // Show the line chart for the hovered country
           showLineChart(countryName, selectedYear);
@@ -595,11 +587,7 @@
         })
         .on("mouseout", function () {
           // Remove the highlight and hide the line chart
-          d3.select(this)
-          .transition() // Start another transition
-          .duration(250) // 500 milliseconds
-          .style("opacity", 1)
-          .style("stroke-width", 0.5);
+          d3.select(this).style("opacity", 1).style("stroke-width", 0.5);
           d3.select("#line-chart-container").style("visibility", "hidden");
         });
     }
@@ -642,27 +630,41 @@
     // }
 
     function highlightCountry(countryName, svg, geojsonData) {
-  // Normalize the typed country name for comparison
-  const normalizedCountryName = countryName.trim().toLowerCase();
+      // Normalize the typed country name for comparison
+      const normalizedCountryName = countryName.trim().toLowerCase();
+      const selectedYear = parseInt(document.getElementById("year-slider").value, 10);
+      const selectedEnergyType = document.getElementById("energy-type").value;
+      const units = "TWh";
 
-  // Reset styles for all countries
-  svg.selectAll("path.country")
-    .attr("fill", (d) => colorScale(d.properties.energy) || "#ccc")
-    .transition() // Start a transition for smooth color change
-    .duration(500) // Duration of the transition in milliseconds
-    .attr("stroke", "white")
-    .attr("stroke-width", 0.5);
+      // Reset styles for all countries
+      svg
+        .selectAll("path.country")
+        .attr("fill", (d) => colorScale(d.properties.energy) || "#ccc")
+        .attr("stroke", "white")
+        .attr("stroke-width", 0.5);
 
-  // Apply highlight styles directly to the matching country
-  svg.selectAll("path.country").each(function(d) {
-    const dataCountryName = d.properties.name.trim().toLowerCase();
-    if (dataCountryName === normalizedCountryName) {
-      d3.select(this)
-        .attr("fill", "#FFAE42") // Directly set fill color
-        .attr("stroke-width", 2); // Directly set stroke width
+      // Remove existing energy consumption text
+      svg.selectAll("text.energy-consumption").remove();
+
+      // Apply highlight styles directly to the matching country
+      svg.selectAll("path.country").each(function (d) {
+        const dataCountryName = d.properties.name.trim().toLowerCase();
+        if (dataCountryName === normalizedCountryName) {
+          d3.select(this)
+            .attr("fill", "#FFAE42") // Directly set fill color
+            .attr("stroke-width", 2); // Directly set stroke width
+
+          // Add text showing energy consumption
+          const textSelection = svg.append("text")
+            .attr("class", "energy-consumption")
+            .attr("x", width / 2 - 400) // Adjust position as needed
+            .attr("y", 60) // Adjust position as needed
+            .text(`The ${selectedEnergyType} for ${countryName} in ${selectedYear} is: ${d.properties.energy} ${units}`)
+            .style("fill", "#FFAE42")
+            .style("font-size", "20px");
+        }
+      });
     }
-  });
-}
     // Set up the event listener for the country-name input field to trigger highlighting
     d3.select("#country-name").on("input", function () {
       const typedName = d3.select(this).property("value");
@@ -768,7 +770,17 @@
 <main>
   <h1 class="title">PowerAtlas: Navigating Global Energy Consumption</h1>
   <div id="para">
-    <p>Welcome to a captivating exploration of the world's energy consumption history. Here, you'll journey through time, uncovering the shifts and trends in energy use across the globe. Begin by selecting an energy type, then navigate the years or dive into a specific country's story. Discover the changes, compare them to global trends, and gain a deeper understanding of our energy landscape. <br><br> <strong>Pro Tip:</strong> Trace the evolution of energy patterns and focus on a country to see its unique energy tale unfold. Let's embark on this enlightening adventure together.</p>
+    <p>
+      Welcome to a captivating exploration of the world's energy consumption
+      history. Here, you'll journey through time, uncovering the shifts and
+      trends in energy use across the globe. Begin by selecting an energy type,
+      then navigate the years or dive into a specific country's story. Discover
+      the changes, compare them to global trends, and gain a deeper
+      understanding of our energy landscape. <br /><br />
+      <strong>Pro Tip:</strong> Trace the evolution of energy patterns and focus
+      on a country to see its unique energy tale unfold. Let's embark on this enlightening
+      adventure together.
+    </p>
   </div>
   <div id="controls-container">
     <div class="control-block">
@@ -808,8 +820,10 @@
       />
     </div>
   </div>
-  <div id="line-chart-container" style="position: absolute; visibility: hidden; width: 300px; height: 200px; background-color: white; border: 1px solid #ccc; pointer-events: none;">
-  </div>
+  <div
+    id="line-chart-container"
+    style="position: absolute; visibility: hidden; width: 300px; height: 200px; background-color: white; border: 1px solid #ccc; pointer-events: none;"
+  ></div>
   <div>
     <div id="map"></div>
   </div>
@@ -822,7 +836,8 @@
     padding: 10px;
     background-color: black;
     color: white;
-    font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', 'Consolas', 'source-code-pro', monospace;
+    font-family: "Monaco", "Menlo", "Ubuntu Mono", "Consolas", "source-code-pro",
+      monospace;
   }
 
   body,
@@ -839,7 +854,7 @@
     flex-direction: column;
     height: 100vh;
     background-color: rgb(20, 20, 20);
-    font-family: "Roboto", sans-serif;
+    font-family: "Monaco", "Menlo", "Ubuntu Mono", "Consolas", "source-code-pro", monospace;
     font-weight: 500;
     max-height: 100vh; /* Maximum height to ensure it fits in the viewport */
     overflow: auto; /* Enables scrolling for the entire main content if needed */
@@ -865,10 +880,11 @@
     gap: 10px; /* Adjust the space between the controls */
     margin: 20px auto;
     color: white;
-    font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', 'Consolas', 'source-code-pro', monospace;
+    font-family: "Monaco", "Menlo", "Ubuntu Mono", "Consolas", "source-code-pro",
+      monospace;
   }
 
-  .control-block{
+  .control-block {
     background-color: #34495e;
     padding: 15px;
     border-radius: 7px;
@@ -881,7 +897,8 @@
     border: none;
     border-radius: 5px;
     cursor: pointer;
-    font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', 'Consolas', 'source-code-pro', monospace;
+    font-family: "Monaco", "Menlo", "Ubuntu Mono", "Consolas", "source-code-pro",
+      monospace;
     -webkit-appearance: none;
     -moz-appearance: none;
     appearance: none;
@@ -889,14 +906,15 @@
     text-align: center;
   }
 
-  #country-name{
+  #country-name {
     padding: 5px 10px;
     background-color: #83aff0;
     color: black;
     border-radius: 5px;
     border: 1px solid black;
     cursor: pointer;
-    font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', 'Consolas', 'source-code-pro', monospace;
+    font-family: "Monaco", "Menlo", "Ubuntu Mono", "Consolas", "source-code-pro",
+      monospace;
     -webkit-appearance: none;
     -moz-appearance: none;
     appearance: none;
@@ -932,7 +950,8 @@
     color: #f5f5f5;
     background-color: #333;
     padding: 20px;
-    font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', 'Consolas', 'source-code-pro', monospace;
+    font-family: "Monaco", "Menlo", "Ubuntu Mono", "Consolas", "source-code-pro",
+      monospace;
     font-size: 16px;
     line-height: 1.6;
     border-radius: 5px;
