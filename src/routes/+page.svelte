@@ -52,17 +52,17 @@
       .attr("viewBox", `0 0 ${width} ${height}`)
       .attr("preserveAspectRatio", "xMidYMid meet");
     
-    // svg.append("text")
-    //     .attr("class", "text-group")
-    //     .attr("x", width / 2)
-    //     .attr("y", 25)
-    //     .attr("text-anchor", "middle")
-    //     .style("fill", "white")
-    //     .style("font-family", "Roboto, sans-serif")
-    //     .style("font-size", "22px")
-    //     .text(
-    //       "Hover over each country to see the % change in that countries energy consumption",
-    //     );
+    svg.append("text")
+        .attr("class", "text-group")
+        .attr("x", width / 2)
+        .attr("y", 25)
+        .attr("text-anchor", "middle")
+        .style("fill", "white")
+        .style("font-family", "Roboto, sans-serif")
+        .style("font-size", "22px")
+        .text(
+          "Hover over each country to see the % change in that countries energy consumption",
+        );
 
     const defs = svg.append("defs");
 
@@ -249,8 +249,7 @@
         // Select all annotations and adjust their visibility
         svg
           .selectAll(
-            ".country-annotation-group, .annotation-group",
-            ".text-group",
+            ".text-group"
           )
           .style("display", isInitialScale ? null : "none");
       });
@@ -639,7 +638,7 @@
   // Reset styles for all countries
   svg.selectAll("path.country")
     .attr("fill", (d) => colorScale(d.properties.energy) || "#ccc")
-    .attr("stroke", "#fff")
+    .attr("stroke", "white")
     .attr("stroke-width", 0.5);
 
   // Apply highlight styles directly to the matching country
@@ -647,7 +646,7 @@
     const dataCountryName = d.properties.name.trim().toLowerCase();
     if (dataCountryName === normalizedCountryName) {
       d3.select(this)
-        .attr("fill", "#5c6b73") // Directly set fill color
+        .attr("fill", "#FFAE42") // Directly set fill color
         .attr("stroke-width", 2); // Directly set stroke width
     }
   });
@@ -799,7 +798,9 @@
   </div>
   <div id="line-chart-container" style="position: absolute; visibility: hidden; width: 300px; height: 200px; background-color: white; border: 1px solid #ccc; pointer-events: none;">
   </div>
-  <div id="map"></div>
+  <div>
+    <div id="map"></div>
+  </div>
 </main>
 
 <style>
