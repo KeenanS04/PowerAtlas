@@ -363,19 +363,23 @@
         globalEnergyData,
       );
 
-      const container = d3.select("#line-chart-container");
-      container.html(""); // Clear previous content
+      // Target the 'info-panel' for the line chart
+      const container = d3.select("#line-chart"); // New line
+      container.html("");
 
-      // Adjusted margins and increased visualization size
-      const margin = { top: 50, right: 30, bottom: 70, left: 70 },
-        width = 400 - margin.left - margin.right, // Increased width
-        height = 300 - margin.top - margin.bottom; // Increased height
+      // Assuming the info-panel width is around 20% of the viewport, adjust these values as needed
+      const panelWidth = document.getElementById("info-panel").clientWidth - 40; // Use the updated info-panel width
+      const panelHeight = panelWidth; // Set a fixed height to make the chart less tall
+
+      // Adjusted margins for better layout
+      const margin = { top: 20, right: 20, bottom: 30, left: 50 },
+        width = panelWidth - margin.left - margin.right,
+        height = panelHeight - margin.top - margin.bottom;
 
       const svg = container
         .append("svg")
         .attr("width", width + margin.left + margin.right)
         .attr("height", height + margin.top + margin.bottom)
-        .style("background-color", "white")
         .append("g")
         .attr("transform", `translate(${margin.left},${margin.top})`);
 
@@ -436,10 +440,7 @@
       // Append x-axis label
       svg
         .append("text")
-        .attr(
-          "transform",
-          `translate(${width / 2}, ${height + margin.bottom - 20})`,
-        )
+        .attr("transform", `translate(${width / 2}, ${height + margin.bottom})`)
         .style("text-anchor", "middle")
         .text("Years");
 
@@ -473,10 +474,22 @@
 
       svg
         .append("g")
-        .attr("transform", `translate(0,${height})`)
-        .call(d3.axisBottom(x).ticks(5).tickFormat(d3.format("d"))); // Ensure only 5 ticks for the 5 years
+        .attr("transform", `translate(0,${height - 10})`)
+        .call(d3.axisBottom(x).ticks(5).tickFormat(d3.format("d")))
+        // Apply styles to the path, line, and text elements to make them black
+        .selectAll("path, line")
+        .style("stroke", "black"); // Change the color of the axis line and ticks
 
-      svg.append("g").call(d3.axisLeft(y));
+      // Additionally, change the tick labels (text) to black
+      svg.selectAll(".tick text").style("fill", "black");
+
+      svg
+        .append("g")
+        .call(d3.axisLeft(y))
+        .selectAll("path, line")
+        .style("stroke", "black")
+        .selectAll(".tick text")
+        .style("fill", "black");
 
       const legendPadding = 10; // Padding from the right and bottom edges
       const legendMargin = 20; // Space between legend items
@@ -556,42 +569,22 @@
           // Highlight the country
           d3.select(this).style("opacity", 0.5);
           const countryName = d.properties.name;
-          // Show the line chart for the hovered country
-          showLineChart(countryName, selectedYear);
+          const energyConsumption = d.properties.energy || "Data not available";
 
-          // Dynamically calculate position to ensure the chart doesn't go off-screen
-          const chartContainer = document.getElementById(
-            "line-chart-container",
+          // Update the info panel with the energy consumption info
+          d3.select("#energy-info").text(
+            `Energy Consumption for ${countryName}: ${energyConsumption}`,
           );
-          const chartWidth = chartContainer.offsetWidth;
-          const chartHeight = chartContainer.offsetHeight;
-          const pageX = event.pageX;
-          const pageY = event.pageY;
-          // Get the map boundaries
-          const mapBounds = pathGenerator.bounds(geojsonData);
-          const mapWidth = mapBounds[1][0] - mapBounds[0][0];
-          const mapHeight = mapBounds[1][1] - mapBounds[0][1];
+          const countryStats = `
+            <h2>${countryName}</h2>
+            <p>Energy Consumption: ${energyConsumption} TWh</p>
+          `;
 
-          // Adjust left position to avoid overflow
-          let left =
-            pageX + 10 + chartWidth > mapWidth
-              ? pageX - chartWidth - 90
-              : pageX + 15;
-          // Adjust top position to avoid overflow
-          let top =
-            pageY + chartHeight > mapHeight
-              ? mapHeight - chartHeight - 100
-              : pageY;
-
-          d3.select("#line-chart-container")
-            .style("left", `${left}px`)
-            .style("top", `${top}px`)
-            .style("visibility", "visible");
-        })
-        .on("mouseout", function () {
-          // Remove the highlight and hide the line chart
-          d3.select(this).style("opacity", 1);
-          d3.select("#line-chart-container").style("visibility", "hidden");
+          // Prepend the stats to the info panel before the line chart
+          d3.select("#info-panel").html(
+            countryStats + "<div id='line-chart'></div>",
+          );
+          showLineChart(countryName, selectedYear);
         });
     }
 
@@ -633,25 +626,26 @@
     // }
 
     function highlightCountry(countryName, svg, geojsonData) {
-  // Normalize the typed country name for comparison
-  const normalizedCountryName = countryName.trim().toLowerCase();
+      // Normalize the typed country name for comparison
+      const normalizedCountryName = countryName.trim().toLowerCase();
 
-  // Reset styles for all countries
-  svg.selectAll("path.country")
-    .attr("fill", (d) => colorScale(d.properties.energy) || "#ccc")
-    .attr("stroke", "#fff")
-    .attr("stroke-width", 0.5);
+      // Reset styles for all countries
+      svg
+        .selectAll("path.country")
+        .attr("fill", (d) => colorScale(d.properties.energy) || "#ccc")
+        .attr("stroke", "#fff")
+        .attr("stroke-width", 0.5);
 
-  // Apply highlight styles directly to the matching country
-  svg.selectAll("path.country").each(function(d) {
-    const dataCountryName = d.properties.name.trim().toLowerCase();
-    if (dataCountryName === normalizedCountryName) {
-      d3.select(this)
-        .attr("fill", "#5c6b73") // Directly set fill color
-        .attr("stroke-width", 2); // Directly set stroke width
+      // Apply highlight styles directly to the matching country
+      svg.selectAll("path.country").each(function (d) {
+        const dataCountryName = d.properties.name.trim().toLowerCase();
+        if (dataCountryName === normalizedCountryName) {
+          d3.select(this)
+            .attr("fill", "#5c6b73") // Directly set fill color
+            .attr("stroke-width", 2); // Directly set stroke width
+        }
+      });
     }
-  });
-}
 
     // Set up the event listener for the country-name input field to trigger highlighting
     d3.select("#country-name").on("input", function () {
@@ -793,7 +787,15 @@
     id="line-chart-container"
     style="position: absolute; visibility: hidden; width: 300px; height: 200px; background-color: white; border: 1px solid #ccc; pointer-events: none;"
   ></div>
-  <div id="map"></div>
+  <div id="map-panel" style="display: flex; width: 100%; height: 100%;">
+    <div id="map"></div>
+    <!-- Existing map div -->
+    <div id="info-panel">
+      <!-- This will contain the line chart and energy consumption info -->
+      <h2 id="energy-info">Hover over a country</h2>
+      <div id="line-chart"></div>
+    </div>
+  </div>
   <div id="para">
     <p>YAP</p>
   </div>
@@ -826,16 +828,26 @@
     font-weight: 500;
   }
 
+  #map-panel {
+    flex-grow: 1;
+    display: flex;
+  }
+
   #map {
     flex-grow: 1;
     display: flex;
     justify-content: center;
     align-items: center;
     overflow: hidden;
-    width: 80%;
-    height: auto; /* Adjust based on content */
-    margin: 0 auto;
     background-color: rgb(35, 35, 35);
+  }
+
+  #info-panel {
+    width: 30%;
+    min-width: 300px;
+    background-color: #333;
+    color: white;
+    padding: 10px;
   }
 
   #controls-container {
@@ -888,11 +900,5 @@
 
   #para {
     color: white;
-  }
-
-  .country.highlighted {
-    fill: yellow !important; /* Use a bright color for testing */
-    stroke: red !important;
-    stroke-width: 2px !important;
   }
 </style>
