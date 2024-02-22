@@ -51,31 +51,33 @@
       .attr("height", "100vh") // Use 100vh to take up the full viewport height
       .attr("viewBox", `0 0 ${width} ${height}`)
       .attr("preserveAspectRatio", "xMidYMid meet");
-    
+
     const defs = svg.append("defs");
 
-      defs.append("marker")
-        .attr("id", "arrowhead")
-        .attr("markerWidth", 10)
-        .attr("markerHeight", 7)
-        .attr("refX", 0)
-        .attr("refY", 3.5)
-        .attr("orient", "auto")
-        .append("polygon")
-        .attr("points", "0 0, 10 3.5, 0 7");
-
+    defs
+      .append("marker")
+      .attr("id", "arrowhead")
+      .attr("markerWidth", 10)
+      .attr("markerHeight", 7)
+      .attr("refX", 0)
+      .attr("refY", 3.5)
+      .attr("orient", "auto")
+      .append("polygon")
+      .attr("points", "0 0, 10 3.5, 0 7");
 
     const g = svg.append("g");
 
     g.append("text")
       .attr("class", "text-group")
-      .attr("x", width / 2) 
-      .attr("y", 25) 
-      .attr("text-anchor", "middle") 
+      .attr("x", width / 2)
+      .attr("y", 25)
+      .attr("text-anchor", "middle")
       .style("fill", "white")
       .style("font-family", "Roboto, sans-serif")
-      .style("font-size", "22px") 
-      .text("Hover over each country to see the % change in that countries energy consumption"); 
+      .style("font-size", "22px")
+      .text(
+        "Hover over each country to see the % change in that countries energy consumption",
+      );
 
     const projection = d3
       .geoNaturalEarth1()
@@ -87,7 +89,7 @@
     const colorScale = d3
       .scaleThreshold()
       .domain([0, 10.61, 69.34, 345.49, 44275.91])
-      .range(["#7474b0","#83aff0", "#4779c4", "#3c649f", "#2c456b"]);
+      .range(["#7474b0", "#83aff0", "#4779c4", "#3c649f", "#2c456b"]);
 
     // After defining the colorScale
     const legendData = colorScale.range().map((color) => {
@@ -103,20 +105,20 @@
       .append("g")
       .attr("id", "legend")
       .attr("transform", `translate(${50}, ${height - 300})`); // Adjust position as needed
-    
-
 
     function updateColorScaleAndLegend(energyData, selectedEnergyType) {
       // Get all the non-null values for the selected energy type from the data.
       const energyValues = energyData
-        .map(d => +d[selectedEnergyType])
-        .filter(val => !isNaN(val) && val !== 0);
+        .map((d) => +d[selectedEnergyType])
+        .filter((val) => !isNaN(val) && val !== 0);
 
       // Calculate quantiles for the color scale domain.
       const quantileSteps = 5; // Number of color categories you want - 1.
       const quantiles = [];
       for (let i = 1; i <= quantileSteps; i++) {
-        quantiles.push(d3.quantile(energyValues.sort(d3.ascending), i / quantileSteps));
+        quantiles.push(
+          d3.quantile(energyValues.sort(d3.ascending), i / quantileSteps),
+        );
       }
 
       // Set up the color scale with the calculated quantiles.
@@ -133,21 +135,25 @@
 
       let legendData = colorScale.range().map((color, i) => {
         const extent = colorScale.invertExtent(color);
-        if (i === 0 && extent[0] == null) { // Check for the first element and null value
+        if (i === 0 && extent[0] == null) {
+          // Check for the first element and null value
           extent[0] = 0; // Set the start of the first extent to 0
         }
         return extent;
       });
-      
+
       legendData = legendData.map((extent, i, array) => {
         if (extent[1] == null) {
-          extent[1] = i === array.length - 1 ? colorScale.domain()[colorScale.domain().length - 1] : array[i + 1][0];
+          extent[1] =
+            i === array.length - 1
+              ? colorScale.domain()[colorScale.domain().length - 1]
+              : array[i + 1][0];
         }
         return extent;
       });
       const legendRects = legend
-      .selectAll(".legend-color-rect")
-      .data(legendData);
+        .selectAll(".legend-color-rect")
+        .data(legendData);
 
       legendRects.exit().remove(); // Remove any excess rects.
 
@@ -160,12 +166,10 @@
         .attr("y", (d, i) => i * legendItemHeight)
         .attr("width", 20)
         .attr("height", 20)
-        .style("fill", d => colorScale(d[0]));
+        .style("fill", (d) => colorScale(d[0]));
 
       // Update the text labels for each legend item.
-      const legendTexts = legend
-        .selectAll(".legend-text")
-        .data(legendData);
+      const legendTexts = legend.selectAll(".legend-text").data(legendData);
 
       legendTexts.exit().remove(); // Remove any excess texts.
 
@@ -176,7 +180,7 @@
         .merge(legendTexts) // Combine enter and update selections.
         .attr("x", 30)
         .attr("y", (d, i) => i * legendItemHeight + 15)
-        .text(d => `${d[0].toFixed(2)} - ${d[1].toFixed(2)}`);
+        .text((d) => `${d[0].toFixed(2)} - ${d[1].toFixed(2)}`);
     }
 
     // Assuming the legend and legendData are already defined
@@ -233,17 +237,22 @@
 
     // Implement zoom and pan functionality
     const initialScale = 1;
-    const zoom = d3.zoom()
+    const zoom = d3
+      .zoom()
       .scaleExtent([1, 8]) // Assuming your scale extent is from 1 to 8
       .on("zoom", (event) => {
         g.attr("transform", event.transform); // Apply the zoom and pan
-        
+
         // Check if the current scale is the initial scale
         const isInitialScale = event.transform.k === initialScale;
-        
+
         // Select all annotations and adjust their visibility
-        svg.selectAll(".country-annotation-group, .annotation-group", ".text-group") 
-          .style("display", isInitialScale ? null : "none"); 
+        svg
+          .selectAll(
+            ".country-annotation-group, .annotation-group",
+            ".text-group",
+          )
+          .style("display", isInitialScale ? null : "none");
       });
 
     svg.call(zoom);
@@ -260,13 +269,13 @@
       // console.log(data);
       // console.log(energyData);
       geojsonData = data;
-      globalEnergyData = energyData; 
+      globalEnergyData = energyData;
       const initialYear = 2021;
-      const initialEnergyType = 'primary_energy_consumption';
+      const initialEnergyType = "primary_energy_consumption";
       updateColorScaleAndLegend(globalEnergyData, initialEnergyType);
       updateMap(globalEnergyData, initialYear);
-      updateAnnotation(svg, initialEnergyType);
-      updateCountryAnnotation(svg, initialEnergyType, geojsonData);
+      // updateAnnotation(svg, initialEnergyType);
+      // updateCountryAnnotation(svg, initialEnergyType, geojsonData);
       document.getElementById("energy-type").value = initialEnergyType;
       document.getElementById("year-slider").value = initialYear;
       document.getElementById("year-label").textContent = initialYear;
@@ -295,14 +304,14 @@
     function calculateTotalLineChartData(selectedYear, energyType, energyData) {
       // Calculate the total energy consumption for each year for the selected energy type
       if (!Array.isArray(energyData)) {
-        console.error('energyData is not an array', energyData);
+        console.error("energyData is not an array", energyData);
         return []; // Return an empty array or handle this case appropriately
       }
       const startYear = selectedYear - 2;
       const endYear = selectedYear + 2;
       let yearTotals = {};
 
-      energyData.forEach(d => {
+      energyData.forEach((d) => {
         const year = parseInt(d.year, 10);
         const value = +d[energyType];
         if (!isNaN(value) && year >= startYear && year <= endYear) {
@@ -314,21 +323,28 @@
       });
 
       // Convert the totals into an array of { year, value } objects and sort by year
-      let totalLineChartData = Object.keys(yearTotals).map(year => ({
-        year: +year,
-        value: yearTotals[year]
-      })).sort((a, b) => a.year - b.year);
+      let totalLineChartData = Object.keys(yearTotals)
+        .map((year) => ({
+          year: +year,
+          value: yearTotals[year],
+        }))
+        .sort((a, b) => a.year - b.year);
 
-      const startYearData = totalLineChartData.find(d => d.year === selectedYear - 2);
+      const startYearData = totalLineChartData.find(
+        (d) => d.year === selectedYear - 2,
+      );
       if (startYearData) {
         const startValue = startYearData.value;
-        totalLineChartData = totalLineChartData.map(d => ({
-        year: d.year,
-        value: ((d.value - startValue) / startValue) * 100 // Calculate the percentage change
-      }));
+        totalLineChartData = totalLineChartData.map((d) => ({
+          year: d.year,
+          value: ((d.value - startValue) / startValue) * 100, // Calculate the percentage change
+        }));
       } else {
         // If there is no data for the start year, default to 0 percent change
-        totalLineChartData = totalLineChartData.map(d => ({ year: d.year, value: 0 }));
+        totalLineChartData = totalLineChartData.map((d) => ({
+          year: d.year,
+          value: 0,
+        }));
       }
 
       return totalLineChartData;
@@ -336,8 +352,16 @@
 
     function showLineChart(countryName, selectedYear) {
       const selectedEnergyType = document.getElementById("energy-type").value;
-      const lineChartData = calculateLineChartData(countryName, selectedYear, selectedEnergyType);
-      const totalLineChartData = calculateTotalLineChartData(selectedYear, selectedEnergyType, globalEnergyData);
+      const lineChartData = calculateLineChartData(
+        countryName,
+        selectedYear,
+        selectedEnergyType,
+      );
+      const totalLineChartData = calculateTotalLineChartData(
+        selectedYear,
+        selectedEnergyType,
+        globalEnergyData,
+      );
 
       const container = d3.select("#line-chart-container");
       container.html(""); // Clear previous content
@@ -354,7 +378,6 @@
         .style("background-color", "white")
         .append("g")
         .attr("transform", `translate(${margin.left},${margin.top})`);
-      
 
       svg
         .append("rect")
@@ -378,7 +401,7 @@
       // Calculate the domain for the Y-axis based on the combined data
       const yDomain = [
         d3.min(combinedData, (d) => d.value),
-        d3.max(combinedData, (d) => d.value)
+        d3.max(combinedData, (d) => d.value),
       ];
 
       const x = d3.scaleLinear().domain(xDomain).range([0, width]);
@@ -433,19 +456,20 @@
             .x((d) => x(d.year))
             .y((d) => y(d.value)),
         );
-      
+
       svg
-      .append("path")
-      .datum(totalLineChartData)
-      .attr("fill", "none")
-      .attr("stroke", "orange") // Use a different color for the total line
-      .attr("stroke-width", 2)
-      .attr("d", 
-            d3.
-            line()
-            .x(d => x(d.year))
-            .y(d => y(d.value))
-      );
+        .append("path")
+        .datum(totalLineChartData)
+        .attr("fill", "none")
+        .attr("stroke", "orange") // Use a different color for the total line
+        .attr("stroke-width", 2)
+        .attr(
+          "d",
+          d3
+            .line()
+            .x((d) => x(d.year))
+            .y((d) => y(d.value)),
+        );
 
       svg
         .append("g")
@@ -462,18 +486,21 @@
       const legendY = height + 25; // Adjust this value to position the legend at the bottom
 
       // Create a legend group
-      const lineChartLegend = svg.append("g")
+      const lineChartLegend = svg
+        .append("g")
         .attr("transform", `translate(${legendX}, ${legendY})`);
 
       // Country Line Legend
-      lineChartLegend.append("rect")
+      lineChartLegend
+        .append("rect")
         .attr("x", 0)
         .attr("y", 0)
         .attr("width", 10)
         .attr("height", 10)
         .style("fill", "steelblue");
 
-      lineChartLegend.append("text")
+      lineChartLegend
+        .append("text")
         .attr("x", 20)
         .attr("y", 10)
         .text(`${countryName} % Change`)
@@ -481,14 +508,16 @@
         .attr("alignment-baseline", "middle");
 
       // Total Line Legend
-      lineChartLegend.append("rect")
+      lineChartLegend
+        .append("rect")
         .attr("x", 0)
         .attr("y", 20) // Adjust this to change the vertical spacing between legend items
         .attr("width", 10)
         .attr("height", 10)
         .style("fill", "orange");
 
-      lineChartLegend.append("text")
+      lineChartLegend
+        .append("text")
         .attr("x", 20)
         .attr("y", 30) // Aligns with the 'Total % Change' legend rectangle
         .text("Total % Change")
@@ -496,27 +525,34 @@
         .attr("alignment-baseline", "middle");
     }
 
-
     function updateMap(energyData, selectedYear) {
       const selectedEnergyType = document.getElementById("energy-type").value;
 
-      geojsonData.features.forEach(feature => {
-        const countryData = energyData.find(d => d.country === feature.properties.name && parseInt(d.year, 10) === selectedYear);
-        feature.properties.energy = countryData ? +countryData[selectedEnergyType] : 0;
+      geojsonData.features.forEach((feature) => {
+        const countryData = energyData.find(
+          (d) =>
+            d.country === feature.properties.name &&
+            parseInt(d.year, 10) === selectedYear,
+        );
+        feature.properties.energy = countryData
+          ? +countryData[selectedEnergyType]
+          : 0;
       });
 
-      const paths = g.selectAll("path.country")
-        .data(geojsonData.features, d => d.properties.name);
+      const paths = g
+        .selectAll("path.country")
+        .data(geojsonData.features, (d) => d.properties.name);
 
-      paths.enter()
+      paths
+        .enter()
         .append("path")
-          .attr("class", "country")
-          .merge(paths)
-          .attr("d", pathGenerator)
-          .attr("fill", d => colorScale(d.properties.energy) || "#ccc")
-          .attr("stroke", "#fff")
-          .attr("stroke-width", 0.5)
-          .on("mouseover", function (event, d) {
+        .attr("class", "country")
+        .merge(paths)
+        .attr("d", pathGenerator)
+        .attr("fill", (d) => colorScale(d.properties.energy) || "#ccc")
+        .attr("stroke", "#fff")
+        .attr("stroke-width", 0.5)
+        .on("mouseover", function (event, d) {
           // Highlight the country
           d3.select(this).style("opacity", 0.5);
           const countryName = d.properties.name;
@@ -559,55 +595,68 @@
         });
     }
 
-    function updateAnnotation(svg, selectedEnergyType) {
-      svg.selectAll(".annotation-group").remove();
+    // function updateAnnotation(svg, selectedEnergyType) {
+    //   svg.selectAll(".annotation-group").remove();
 
-      // Create an annotation group
-      const annotationGroup = svg.append("g")
-        .attr("class", "annotation-group")
-        .attr("transform", "translate(10, 100)"); // Adjust position as needed
+    //   // Create an annotation group
+    //   const annotationGroup = svg.append("g")
+    //     .attr("class", "annotation-group")
+    //     .attr("transform", "translate(10, 100)"); // Adjust position as needed
 
-      // Sample text to demonstrate multi-line
-      const lines = [
-        "See how",
-        "the world's",
-        `${selectedEnergyType}`,
-        "changes throughout",
-        "the years"
-      ];
+    //   // Sample text to demonstrate multi-line
+    //   const lines = [
+    //     "See how",
+    //     "the world's",
+    //     `${selectedEnergyType}`,
+    //     "changes throughout",
+    //     "the years"
+    //   ];
 
-      // Calculate background dimensions
-      const lineHeight = 20; // Adjust the line height as needed
-      const padding = 10; // Adjust padding around text as needed
+    //   // Calculate background dimensions
+    //   const lineHeight = 20; // Adjust the line height as needed
+    //   const padding = 10; // Adjust padding around text as needed
 
-      // Append text lines as tspan elements
-      const text = annotationGroup.append("text")
-        .attr("x", padding)
-        .attr("y", padding)
-        .style("fill", "white")
-        .style("font-family", "Roboto, sans-serif")
-        .style("font-size", "16px");
+    //   // Append text lines as tspan elements
+    //   const text = annotationGroup.append("text")
+    //     .attr("x", padding)
+    //     .attr("y", padding)
+    //     .style("fill", "white")
+    //     .style("font-family", "Roboto, sans-serif")
+    //     .style("font-size", "16px");
 
-      lines.forEach((line, index) => {
-        text.append("tspan")
-          .attr("x", padding)
-          .attr("dy", lineHeight)
-          .text(line);
-      });
-    }
-    
+    //   lines.forEach((line, index) => {
+    //     text.append("tspan")
+    //       .attr("x", padding)
+    //       .attr("dy", lineHeight)
+    //       .text(line);
+    //   });
+    // }
+
     function highlightCountry(countryName, svg, geojsonData) {
-      const normalizedCountryName = countryName.trim().toLowerCase();
+  // Normalize the typed country name for comparison
+  const normalizedCountryName = countryName.trim().toLowerCase();
 
-      // Iterate over all country paths and toggle the "highlighted" class
-      svg.selectAll("path.country")
-          .classed("highlighted", d => d.properties.name.toLowerCase() === normalizedCountryName);
+  // Reset styles for all countries
+  svg.selectAll("path.country")
+    .attr("fill", (d) => colorScale(d.properties.energy) || "#ccc")
+    .attr("stroke", "#fff")
+    .attr("stroke-width", 0.5);
+
+  // Apply highlight styles directly to the matching country
+  svg.selectAll("path.country").each(function(d) {
+    const dataCountryName = d.properties.name.trim().toLowerCase();
+    if (dataCountryName === normalizedCountryName) {
+      d3.select(this)
+        .attr("fill", "#5c6b73") // Directly set fill color
+        .attr("stroke-width", 2); // Directly set stroke width
     }
+  });
+}
 
-    // Set up the event listener for the country-name input field
-    d3.select("#country-name").on("input", function() {
-        const typedName = d3.select(this).property('value');
-        highlightCountry(typedName, svg, geojsonData);
+    // Set up the event listener for the country-name input field to trigger highlighting
+    d3.select("#country-name").on("input", function () {
+      const typedName = d3.select(this).property("value");
+      highlightCountry(typedName, svg, geojsonData);
     });
 
     // Ensure the geojson path elements have the correct class to target
@@ -619,81 +668,82 @@
     //   .attr("class", "country")
     //   .attr("d", pathGenerator)
 
-    const energyTypeToCountry = {
-      'primary_energy_consumption': 'Pakistan',
-      'biofuel_consumption': 'Japan',
-      'fossil_fuel_consumption': 'Saudi Arabia',
-      'coal_consumption': 'Vietnam',
-      'gas_consumption': 'Brazil',
-      'hydro_consumption': 'Indonesia',
-      'low_carbon_consumption': 'Venezuela',
-      'nuclear_consumption': 'Canada',
-      'oil_consumption': 'India',
-      'renewables_consumption': 'Argentina',
-      'solar_consumption': 'Russia',
-      'wind_consumption': 'South Africa',
-      'other_renewable_consumption': 'Sweden',
-    };
-    
-    function updateCountryAnnotation(svg, selectedEnergyType, geojsonData) {
-      const countryName = energyTypeToCountry[selectedEnergyType];
+    // const energyTypeToCountry = {
+    //   'primary_energy_consumption': 'Pakistan',
+    //   'biofuel_consumption': 'Japan',
+    //   'fossil_fuel_consumption': 'Saudi Arabia',
+    //   'coal_consumption': 'Vietnam',
+    //   'gas_consumption': 'Brazil',
+    //   'hydro_consumption': 'Indonesia',
+    //   'low_carbon_consumption': 'Venezuela',
+    //   'nuclear_consumption': 'Canada',
+    //   'oil_consumption': 'India',
+    //   'renewables_consumption': 'Argentina',
+    //   'solar_consumption': 'Russia',
+    //   'wind_consumption': 'South Africa',
+    //   'other_renewable_consumption': 'Sweden',
+    // };
 
-      // Find the GeoJSON feature for the country
-      const countryFeature = geojsonData.features.find(feature => feature.properties.name === countryName);
+    // function updateCountryAnnotation(svg, selectedEnergyType, geojsonData) {
+    //   const countryName = energyTypeToCountry[selectedEnergyType];
 
-      // Calculate the centroid of the country feature
-      const centroid = pathGenerator.centroid(countryFeature);
+    //   // Find the GeoJSON feature for the country
+    //   const countryFeature = geojsonData.features.find(feature => feature.properties.name === countryName);
 
-      // Define the start point for the annotation (somewhere above Antarctica)
-      const startPoint = [width / 2, height - 200]; // Adjust this point as needed
+    //   // Calculate the centroid of the country feature
+    //   const centroid = pathGenerator.centroid(countryFeature);
 
-      // Clear any existing annotations
-      svg.selectAll(".country-annotation-group").remove();
+    //   // Define the start point for the annotation (somewhere above Antarctica)
+    //   const startPoint = [width / 2, height - 200]; // Adjust this point as needed
 
-      // Create a group for the annotation
-      const annotationGroup = svg.append("g")
-        .attr("class", "country-annotation-group");
+    //   // Clear any existing annotations
+    //   svg.selectAll(".country-annotation-group").remove();
 
-      // Text for the annotation based on the selected energy type
-      const annotationText = `See how ${countryName}'s energy profile changes`;
+    // Create a group for the annotation
+    // const annotationGroup = svg.append("g")
+    //   .attr("class", "country-annotation-group");
 
-      // Create the text at the start point
-      annotationGroup.append("text")
-        .attr("x", startPoint[0])
-        .attr("y", startPoint[1])
-        .attr("fill", "white")
-        .attr("font-family", "Roboto, sans-serif")
-        .attr("font-size", "16px")
-        .attr("text-anchor", "middle") // Center the text
-        .text(annotationText);
+    // Text for the annotation based on the selected energy type
+    // const annotationText = `See how ${countryName}'s energy profile changes`;
 
-      // Define the path for the curved arrow
-      annotationGroup.append("path")
-        .attr("d", `M ${startPoint[0]} ${startPoint[1]}
-                    Q ${(startPoint[0] + centroid[0]) / 2} ${height + 100}, 
-                    ${centroid[0]} ${centroid[1]}`)
-        .attr("fill", "none")
-        .attr("stroke", "white")
-        .attr("stroke-width", 2);
+    // // Create the text at the start point
+    // annotationGroup.append("text")
+    //   .attr("x", startPoint[0])
+    //   .attr("y", startPoint[1])
+    //   .attr("fill", "white")
+    //   .attr("font-family", "Roboto, sans-serif")
+    //   .attr("font-size", "16px")
+    //   .attr("text-anchor", "middle") // Center the text
+    //   .text(annotationText);
 
-      // Add an arrow marker to the path
-      annotationGroup.append("path")
-        .attr("d", `M ${centroid[0]} ${centroid[1]}
-                    L ${centroid[0] - 5} ${centroid[1] - 10}
-                    L ${centroid[0] + 5} ${centroid[1] - 10}
-                    Z`)
-        .attr("fill", "white");
-    }
+    // Define the path for the curved arrow
+    // annotationGroup.append("path")
+    //   .attr("d", `M ${startPoint[0]} ${startPoint[1]}
+    //               Q ${(startPoint[0] + centroid[0]) / 2} ${height + 100},
+    //               ${centroid[0]} ${centroid[1]}`)
+    //   .attr("fill", "none")
+    //   .attr("stroke", "white")
+    //   .attr("stroke-width", 2);
 
-
+    // // Add an arrow marker to the path
+    // annotationGroup.append("path")
+    //   .attr("d", `M ${centroid[0]} ${centroid[1]}
+    //               L ${centroid[0] - 5} ${centroid[1] - 10}
+    //               L ${centroid[0] + 5} ${centroid[1] - 10}
+    //               Z`)
+    //   .attr("fill", "white");
+    // }
 
     d3.select("#energy-type").on("change", function () {
       const selectedEnergyType = this.value;
       updateColorScaleAndLegend(globalEnergyData, selectedEnergyType);
-      const selectedYear = parseInt(document.getElementById("year-slider").value, 10);
+      const selectedYear = parseInt(
+        document.getElementById("year-slider").value,
+        10,
+      );
       updateMap(globalEnergyData, selectedYear); // Update the map based on the new energy type.
-      updateAnnotation(svg, selectedEnergyType);
-      updateCountryAnnotation(svg, selectedEnergyType, geojsonData);
+      // updateAnnotation(svg, selectedEnergyType);
+      // updateCountryAnnotation(svg, selectedEnergyType, geojsonData);
     });
 
     // Adjust the year slider listener if needed to ensure it uses the current energy type
@@ -706,33 +756,45 @@
 </script>
 
 <main>
-  <h1 class="title">PowerAtlas: Navagating Global Energy Consumption</h1>
+  <h1 class="title">PowerAtlas: Navigating Global Energy Consumption</h1>
   <div id="controls-container">
-      <label for="energy-type">Choose Energy Type:</label>
-      <select id="energy-type">
-        <option value="primary_energy_consumption">Primary Energy Consumption</option>
-        <option value="biofuel_consumption">Biofuel Consumption</option>
-        <option value="coal_consumption">Coal Consumption</option>
-        <option value="fossil_fuel_consumption">Fossil Fuel Consumption</option>
-        <option value="gas_consumption">Gas Consumption</option>
-        <option value="hydro_consumption">Hydro Consumption</option>
-        <option value="low_carbon_consumption">Low Carbon Consumption</option>
-        <option value="nuclear_consumption">Nuclear Consumption</option>
-        <option value="oil_consumption">Oil Consumption</option>
-        <option value="other_renewable_consumption">Other Renewable Consumption</option>
-        <option value="renewables_consumption">Renewables Consumption</option>
-        <option value="solar_consumption">Solar Consumption</option>
-        <option value="wind_consumption">Wind Consumption</option>
-      </select>
-      <input type="range" id="year-slider" min="1967" max="2021" value="2021" />
-      <span>YEAR: </span>
-      <span id="year-label">2021</span>
-      <label for="country-name">Highlight Country:</label>
-      <input type="text" id="country-name" name="country-name" placeholder="Type a country name">
+    <label for="energy-type">Choose Energy Type:</label>
+    <select id="energy-type">
+      <option value="primary_energy_consumption"
+        >Primary Energy Consumption</option
+      >
+      <option value="biofuel_consumption">Biofuel Consumption</option>
+      <option value="coal_consumption">Coal Consumption</option>
+      <option value="fossil_fuel_consumption">Fossil Fuel Consumption</option>
+      <option value="gas_consumption">Gas Consumption</option>
+      <option value="hydro_consumption">Hydro Consumption</option>
+      <option value="low_carbon_consumption">Low Carbon Consumption</option>
+      <option value="nuclear_consumption">Nuclear Consumption</option>
+      <option value="oil_consumption">Oil Consumption</option>
+      <option value="other_renewable_consumption"
+        >Other Renewable Consumption</option
+      >
+      <option value="renewables_consumption">Renewables Consumption</option>
+      <option value="solar_consumption">Solar Consumption</option>
+      <option value="wind_consumption">Wind Consumption</option>
+    </select>
+    <input type="range" id="year-slider" min="1967" max="2021" value="2021" />
+    <span>YEAR: </span>
+    <span id="year-label">2021</span>
+    <label for="country-name">Highlight Country:</label>
+    <input
+      type="text"
+      id="country-name"
+      name="country-name"
+      placeholder="Type a country name"
+    />
   </div>
-  <div id="line-chart-container" style="position: absolute; visibility: hidden; width: 300px; height: 200px; background-color: white; border: 1px solid #ccc; pointer-events: none;"></div>
+  <div
+    id="line-chart-container"
+    style="position: absolute; visibility: hidden; width: 300px; height: 200px; background-color: white; border: 1px solid #ccc; pointer-events: none;"
+  ></div>
   <div id="map"></div>
-  <div id='para'>
+  <div id="para">
     <p>YAP</p>
   </div>
 </main>
@@ -746,7 +808,8 @@
     color: white;
   }
 
-  body, html {
+  body,
+  html {
     margin: 0;
     padding: 0;
     width: 100%;
@@ -786,12 +849,12 @@
 
   #energy-type {
     padding: 5px 10px;
-    background-color: #83aff0; 
+    background-color: #83aff0;
     color: black;
     border: none;
     border-radius: 5px;
     cursor: pointer;
-    font-family: 'Roboto', sans-serif;
+    font-family: "Roboto", sans-serif;
     -webkit-appearance: none;
     -moz-appearance: none;
     appearance: none;
@@ -823,13 +886,13 @@
     margin-left: 0; /* Align with the slider */
   }
 
-  #para{
+  #para {
     color: white;
   }
 
   .country.highlighted {
-    fill: orange;
-    stroke: #333;
-    stroke-width: 1px;
+    fill: yellow !important; /* Use a bright color for testing */
+    stroke: red !important;
+    stroke-width: 2px !important;
   }
 </style>
