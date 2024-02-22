@@ -549,11 +549,17 @@
         .merge(paths)
         .attr("d", pathGenerator)
         .attr("fill", (d) => colorScale(d.properties.energy) || "#ccc")
+        .transition() // Start a transition for smooth color change
+        .duration(500) // Duration of the transition in milliseconds
         .attr("stroke", "#fff")
         .attr("stroke-width", 0.5)
         .on("mouseover", function (event, d) {
           // Highlight the country
-          d3.select(this).style("opacity", 0.5);
+          d3.select(this)
+          .transition() // Start a transition
+          .duration(250) // 500 milliseconds
+          .style("opacity", 0.5)
+          .style("stroke-width", 2);
           const countryName = d.properties.name;
           // Show the line chart for the hovered country
           showLineChart(countryName, selectedYear);
@@ -589,7 +595,11 @@
         })
         .on("mouseout", function () {
           // Remove the highlight and hide the line chart
-          d3.select(this).style("opacity", 1);
+          d3.select(this)
+          .transition() // Start another transition
+          .duration(250) // 500 milliseconds
+          .style("opacity", 1)
+          .style("stroke-width", 0.5);
           d3.select("#line-chart-container").style("visibility", "hidden");
         });
     }
@@ -638,6 +648,8 @@
   // Reset styles for all countries
   svg.selectAll("path.country")
     .attr("fill", (d) => colorScale(d.properties.energy) || "#ccc")
+    .transition() // Start a transition for smooth color change
+    .duration(500) // Duration of the transition in milliseconds
     .attr("stroke", "white")
     .attr("stroke-width", 0.5);
 
@@ -840,6 +852,7 @@
     align-items: center;
     overflow: hidden;
     width: 80%;
+    height: 80%;
     margin: 0 auto;
     background-color: rgb(35, 35, 35);
     border: 1px solid #ccc;
