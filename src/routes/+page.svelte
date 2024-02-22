@@ -51,6 +51,18 @@
       .attr("height", "100vh") // Use 100vh to take up the full viewport height
       .attr("viewBox", `0 0 ${width} ${height}`)
       .attr("preserveAspectRatio", "xMidYMid meet");
+    
+    // svg.append("text")
+    //     .attr("class", "text-group")
+    //     .attr("x", width / 2)
+    //     .attr("y", 25)
+    //     .attr("text-anchor", "middle")
+    //     .style("fill", "white")
+    //     .style("font-family", "Roboto, sans-serif")
+    //     .style("font-size", "22px")
+    //     .text(
+    //       "Hover over each country to see the % change in that countries energy consumption",
+    //     );
 
     const defs = svg.append("defs");
 
@@ -66,18 +78,6 @@
       .attr("points", "0 0, 10 3.5, 0 7");
 
     const g = svg.append("g");
-
-    g.append("text")
-      .attr("class", "text-group")
-      .attr("x", width / 2)
-      .attr("y", 25)
-      .attr("text-anchor", "middle")
-      .style("fill", "white")
-      .style("font-family", "Roboto, sans-serif")
-      .style("font-size", "22px")
-      .text(
-        "Hover over each country to see the % change in that countries energy consumption",
-      );
 
     const projection = d3
       .geoNaturalEarth1()
@@ -363,23 +363,19 @@
         globalEnergyData,
       );
 
-      // Target the 'info-panel' for the line chart
-      const container = d3.select("#line-chart"); // New line
-      container.html("");
+      const container = d3.select("#line-chart-container");
+      container.html(""); // Clear previous content
 
-      // Assuming the info-panel width is around 20% of the viewport, adjust these values as needed
-      const panelWidth = document.getElementById("info-panel").clientWidth - 40; // Use the updated info-panel width
-      const panelHeight = panelWidth; // Set a fixed height to make the chart less tall
-
-      // Adjusted margins for better layout
-      const margin = { top: 20, right: 20, bottom: 30, left: 50 },
-        width = panelWidth - margin.left - margin.right,
-        height = panelHeight - margin.top - margin.bottom;
+      // Adjusted margins and increased visualization size
+      const margin = { top: 50, right: 30, bottom: 70, left: 70 },
+        width = 400 - margin.left - margin.right, // Increased width
+        height = 300 - margin.top - margin.bottom; // Increased height
 
       const svg = container
         .append("svg")
         .attr("width", width + margin.left + margin.right)
         .attr("height", height + margin.top + margin.bottom)
+        .style("background-color", "white")
         .append("g")
         .attr("transform", `translate(${margin.left},${margin.top})`);
 
@@ -440,7 +436,10 @@
       // Append x-axis label
       svg
         .append("text")
-        .attr("transform", `translate(${width / 2}, ${height + margin.bottom})`)
+        .attr(
+          "transform",
+          `translate(${width / 2}, ${height + margin.bottom - 20})`,
+        )
         .style("text-anchor", "middle")
         .text("Years");
 
@@ -474,22 +473,10 @@
 
       svg
         .append("g")
-        .attr("transform", `translate(0,${height - 10})`)
-        .call(d3.axisBottom(x).ticks(5).tickFormat(d3.format("d")))
-        // Apply styles to the path, line, and text elements to make them black
-        .selectAll("path, line")
-        .style("stroke", "black"); // Change the color of the axis line and ticks
+        .attr("transform", `translate(0,${height})`)
+        .call(d3.axisBottom(x).ticks(5).tickFormat(d3.format("d"))); // Ensure only 5 ticks for the 5 years
 
-      // Additionally, change the tick labels (text) to black
-      svg.selectAll(".tick text").style("fill", "black");
-
-      svg
-        .append("g")
-        .call(d3.axisLeft(y))
-        .selectAll("path, line")
-        .style("stroke", "black")
-        .selectAll(".tick text")
-        .style("fill", "black");
+      svg.append("g").call(d3.axisLeft(y));
 
       const legendPadding = 10; // Padding from the right and bottom edges
       const legendMargin = 20; // Space between legend items
@@ -569,22 +556,42 @@
           // Highlight the country
           d3.select(this).style("opacity", 0.5);
           const countryName = d.properties.name;
-          const energyConsumption = d.properties.energy || "Data not available";
-
-          // Update the info panel with the energy consumption info
-          d3.select("#energy-info").text(
-            `Energy Consumption for ${countryName}: ${energyConsumption}`,
-          );
-          const countryStats = `
-            <h2>${countryName}</h2>
-            <p>Energy Consumption: ${energyConsumption} TWh</p>
-          `;
-
-          // Prepend the stats to the info panel before the line chart
-          d3.select("#info-panel").html(
-            countryStats + "<div id='line-chart'></div>",
-          );
+          // Show the line chart for the hovered country
           showLineChart(countryName, selectedYear);
+
+          // Dynamically calculate position to ensure the chart doesn't go off-screen
+          const chartContainer = document.getElementById(
+            "line-chart-container",
+          );
+          const chartWidth = chartContainer.offsetWidth;
+          const chartHeight = chartContainer.offsetHeight;
+          const pageX = event.pageX;
+          const pageY = event.pageY;
+          // Get the map boundaries
+          const mapBounds = pathGenerator.bounds(geojsonData);
+          const mapWidth = mapBounds[1][0] - mapBounds[0][0];
+          const mapHeight = mapBounds[1][1] - mapBounds[0][1];
+
+          // Adjust left position to avoid overflow
+          let left =
+            pageX + 10 + chartWidth > mapWidth
+              ? pageX - chartWidth - 90
+              : pageX + 15;
+          // Adjust top position to avoid overflow
+          let top =
+            pageY + chartHeight > mapHeight
+              ? mapHeight - chartHeight - 100
+              : pageY;
+
+          d3.select("#line-chart-container")
+            .style("left", `${left}px`)
+            .style("top", `${top}px`)
+            .style("visibility", "visible");
+        })
+        .on("mouseout", function () {
+          // Remove the highlight and hide the line chart
+          d3.select(this).style("opacity", 1);
+          d3.select("#line-chart-container").style("visibility", "hidden");
         });
     }
 
@@ -626,27 +633,25 @@
     // }
 
     function highlightCountry(countryName, svg, geojsonData) {
-      // Normalize the typed country name for comparison
-      const normalizedCountryName = countryName.trim().toLowerCase();
+  // Normalize the typed country name for comparison
+  const normalizedCountryName = countryName.trim().toLowerCase();
 
-      // Reset styles for all countries
-      svg
-        .selectAll("path.country")
-        .attr("fill", (d) => colorScale(d.properties.energy) || "#ccc")
-        .attr("stroke", "#fff")
-        .attr("stroke-width", 0.5);
+  // Reset styles for all countries
+  svg.selectAll("path.country")
+    .attr("fill", (d) => colorScale(d.properties.energy) || "#ccc")
+    .attr("stroke", "#fff")
+    .attr("stroke-width", 0.5);
 
-      // Apply highlight styles directly to the matching country
-      svg.selectAll("path.country").each(function (d) {
-        const dataCountryName = d.properties.name.trim().toLowerCase();
-        if (dataCountryName === normalizedCountryName) {
-          d3.select(this)
-            .attr("fill", "#5c6b73") // Directly set fill color
-            .attr("stroke-width", 2); // Directly set stroke width
-        }
-      });
+  // Apply highlight styles directly to the matching country
+  svg.selectAll("path.country").each(function(d) {
+    const dataCountryName = d.properties.name.trim().toLowerCase();
+    if (dataCountryName === normalizedCountryName) {
+      d3.select(this)
+        .attr("fill", "#5c6b73") // Directly set fill color
+        .attr("stroke-width", 2); // Directly set stroke width
     }
-
+  });
+}
     // Set up the event listener for the country-name input field to trigger highlighting
     d3.select("#country-name").on("input", function () {
       const typedName = d3.select(this).property("value");
@@ -751,54 +756,50 @@
 
 <main>
   <h1 class="title">PowerAtlas: Navigating Global Energy Consumption</h1>
-  <div id="controls-container">
-    <label for="energy-type">Choose Energy Type:</label>
-    <select id="energy-type">
-      <option value="primary_energy_consumption"
-        >Primary Energy Consumption</option
-      >
-      <option value="biofuel_consumption">Biofuel Consumption</option>
-      <option value="coal_consumption">Coal Consumption</option>
-      <option value="fossil_fuel_consumption">Fossil Fuel Consumption</option>
-      <option value="gas_consumption">Gas Consumption</option>
-      <option value="hydro_consumption">Hydro Consumption</option>
-      <option value="low_carbon_consumption">Low Carbon Consumption</option>
-      <option value="nuclear_consumption">Nuclear Consumption</option>
-      <option value="oil_consumption">Oil Consumption</option>
-      <option value="other_renewable_consumption"
-        >Other Renewable Consumption</option
-      >
-      <option value="renewables_consumption">Renewables Consumption</option>
-      <option value="solar_consumption">Solar Consumption</option>
-      <option value="wind_consumption">Wind Consumption</option>
-    </select>
-    <input type="range" id="year-slider" min="1967" max="2021" value="2021" />
-    <span>YEAR: </span>
-    <span id="year-label">2021</span>
-    <label for="country-name">Highlight Country:</label>
-    <input
-      type="text"
-      id="country-name"
-      name="country-name"
-      placeholder="Type a country name"
-    />
+  <div id="para">
+    <p>Welcome to a captivating exploration of the world's energy consumption history. Here, you'll journey through time, uncovering the shifts and trends in energy use across the globe. Begin by selecting an energy type, then navigate the years or dive into a specific country's story. Discover the changes, compare them to global trends, and gain a deeper understanding of our energy landscape. <br><br> <strong>Pro Tip:</strong> Trace the evolution of energy patterns and focus on a country to see its unique energy tale unfold. Let's embark on this enlightening adventure together.</p>
   </div>
-  <div
-    id="line-chart-container"
-    style="position: absolute; visibility: hidden; width: 300px; height: 200px; background-color: white; border: 1px solid #ccc; pointer-events: none;"
-  ></div>
-  <div id="map-panel" style="display: flex; width: 100%; height: 100%;">
-    <div id="map"></div>
-    <!-- Existing map div -->
-    <div id="info-panel">
-      <!-- This will contain the line chart and energy consumption info -->
-      <h2 id="energy-info">Hover over a country</h2>
-      <div id="line-chart"></div>
+  <div id="controls-container">
+    <div class="control-block">
+      <label for="energy-type">Choose Energy Type:</label>
+      <select id="energy-type">
+        <option value="primary_energy_consumption"
+          >Primary Energy Consumption</option
+        >
+        <option value="biofuel_consumption">Biofuel Consumption</option>
+        <option value="coal_consumption">Coal Consumption</option>
+        <option value="fossil_fuel_consumption">Fossil Fuel Consumption</option>
+        <option value="gas_consumption">Gas Consumption</option>
+        <option value="hydro_consumption">Hydro Consumption</option>
+        <option value="low_carbon_consumption">Low Carbon Consumption</option>
+        <option value="nuclear_consumption">Nuclear Consumption</option>
+        <option value="oil_consumption">Oil Consumption</option>
+        <option value="other_renewable_consumption"
+          >Other Renewable Consumption</option
+        >
+        <option value="renewables_consumption">Renewables Consumption</option>
+        <option value="solar_consumption">Solar Consumption</option>
+        <option value="wind_consumption">Wind Consumption</option>
+      </select>
+    </div>
+    <div class="control-block">
+      <span>YEAR: </span>
+      <span id="year-label">2021</span>
+      <input type="range" id="year-slider" min="1967" max="2021" value="2021" />
+    </div>
+    <div class="control-block">
+      <label for="country-name">Highlight Country:</label>
+      <input
+        type="text"
+        id="country-name"
+        name="country-name"
+        placeholder="Type a country name"
+      />
     </div>
   </div>
-  <div id="para">
-    <p>YAP</p>
+  <div id="line-chart-container" style="position: absolute; visibility: hidden; width: 300px; height: 200px; background-color: white; border: 1px solid #ccc; pointer-events: none;">
   </div>
+  <div id="map"></div>
 </main>
 
 <style>
@@ -808,6 +809,7 @@
     padding: 10px;
     background-color: black;
     color: white;
+    font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', 'Consolas', 'source-code-pro', monospace;
   }
 
   body,
@@ -826,11 +828,8 @@
     background-color: rgb(20, 20, 20);
     font-family: "Roboto", sans-serif;
     font-weight: 500;
-  }
-
-  #map-panel {
-    flex-grow: 1;
-    display: flex;
+    max-height: 100vh; /* Maximum height to ensure it fits in the viewport */
+    overflow: auto; /* Enables scrolling for the entire main content if needed */
   }
 
   #map {
@@ -839,15 +838,10 @@
     justify-content: center;
     align-items: center;
     overflow: hidden;
+    width: 80%;
+    margin: 0 auto;
     background-color: rgb(35, 35, 35);
-  }
-
-  #info-panel {
-    width: 30%;
-    min-width: 300px;
-    background-color: #333;
-    color: white;
-    padding: 10px;
+    border: 1px solid #ccc;
   }
 
   #controls-container {
@@ -857,6 +851,13 @@
     gap: 10px; /* Adjust the space between the controls */
     margin: 20px auto;
     color: white;
+    font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', 'Consolas', 'source-code-pro', monospace;
+  }
+
+  .control-block{
+    background-color: #34495e;
+    padding: 15px;
+    border-radius: 7px;
   }
 
   #energy-type {
@@ -866,7 +867,22 @@
     border: none;
     border-radius: 5px;
     cursor: pointer;
-    font-family: "Roboto", sans-serif;
+    font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', 'Consolas', 'source-code-pro', monospace;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    appearance: none;
+    margin-right: 10px;
+    text-align: center;
+  }
+
+  #country-name{
+    padding: 5px 10px;
+    background-color: #83aff0;
+    color: black;
+    border-radius: 5px;
+    border: 1px solid black;
+    cursor: pointer;
+    font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', 'Consolas', 'source-code-pro', monospace;
     -webkit-appearance: none;
     -moz-appearance: none;
     appearance: none;
@@ -879,7 +895,7 @@
     width: 200px; /* Fixed width or use a percentage */
     margin: 0 10px;
     height: 15px;
-    background: #4d4d4d;
+    background: lightgray;
     border-radius: 7.5px;
     outline: none;
   }
@@ -899,6 +915,22 @@
   }
 
   #para {
-    color: white;
+    color: #f5f5f5;
+    background-color: #333;
+    padding: 20px;
+    font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', 'Consolas', 'source-code-pro', monospace;
+    font-size: 16px;
+    line-height: 1.6;
+    border-radius: 5px;
+    margin: 20px auto;
+    max-width: 80%; /* Adjust based on layout */
+  }
+
+  #para p {
+    margin: 0;
+  }
+
+  #para strong {
+    color: #ffffff;
   }
 </style>
